@@ -1,0 +1,12 @@
+[package]
+name = "codegen"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+members = [
+    "generator", "integrations",
+    "java_builder"
+]
+
+[dependencies]

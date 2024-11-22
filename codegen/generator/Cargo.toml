@@ -1,0 +1,9 @@
+[package]
+name = "generator"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+java_builder = { path = "../java_builder" }
+integrations = { path = "../integrations"}
+
