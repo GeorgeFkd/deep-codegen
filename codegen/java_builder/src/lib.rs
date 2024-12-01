@@ -1,193 +1,89 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
 //inspiration from: https://github.com/palantir/javapoet/
 
-#[cfg(test)]
-mod java_builder {
-    use crate::java_builder::class_builder::Builder;
+pub mod java_builder {
+
     use std::cmp::Ordering;
     use std::collections::HashSet;
     use std::fs;
     use std::hash::Hash;
     use std::path::PathBuf;
+    use tree_sitter::Parser;
 
-    //https://github.com/palantir/javapoet/blob/develop/javapoet/src/main/java/com/palantir/javapoet/FieldSpec.java
-    /*
-        /*
-    * Copyright (C) 2015 Square, Inc.
-    *
-    * Licensed under the Apache License, Version 2.0 (the "License");
-    * you may not use this file except in compliance with the License.
-    * You may obtain a copy of the License at
-    *
-    * http://www.apache.org/licenses/LICENSE-2.0
-    *
-    * Unless required by applicable law or agreed to in writing, software
-    * distributed under the License is distributed on an "AS IS" BASIS,
-    * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    * See the License for the specific language governing permissions and
-    * limitations under the License.
-    */
-    package com.palantir.javapoet;
-    import java.io.IOException;
-    import java.io.UncheckedIOException;
-    import java.lang.reflect.Type;
-    import java.util.ArrayList;
-    import java.util.Collections;
-    import java.util.List;
-    import java.util.Set;
-    import javax.lang.model.SourceVersion;
-    import javax.lang.model.element.Modifier;
-
-    /** A generated field declaration. */
-    public final class FieldSpec {
-        private final TypeName type;
-        private final String name;
-        private final List<AnnotationSpec> annotations;
-        private final Set<Modifier> modifiers;
-        private final CodeBlock initializer;
-
-    private FieldSpec(Builder builder) {
-        this.type = checkNotNull(builder.type, "type == null");
-        this.name = checkNotNull(builder.name, "name == null");
-        this.javadoc = builder.javadoc.build();
-        this.annotations = Util.immutableList(builder.annotations);
-        this.modifiers = Util.immutableSet(builder.modifiers);
-        this.initializer = (builder.initializer == null) ? CodeBlock.builder().build() : builder.initializer;
-    }
-}
-    */
-
-    fn assert_interfaces_are_generated(java_str:&str,interfaces: Vec<Implements>){
-
-    }
-
-    fn assert_fields_are_generated(java_str:&str,fields:Vec<Field>) {
-
-    }
-
-    fn assert_methods_are_generated(java_str:&str,methods:Vec<Method>) {
-
+    fn java_parser() -> Parser {
+        let mut parser = Parser::new();
+        parser
+            .set_language(&tree_sitter_java::LANGUAGE.into())
+            .expect("Error loading java grammar");
+        parser
     }
 
     #[test]
-    pub fn can_generate_class() {
-        //this is like an integration test
-        //todo write smaller finer grained unit tests
-
-        let class_name = "FieldSpec";
-        let package_name = "com.palantir.javapoet";
-
-        //todo generate an ANTLR4 java parser and use that in order to ensure that syntax is correct
-        //i can generate the java one and just write a simple program that uses it and prints errors
-        //to stdout.
-        //we care about correct syntax in this library and offering a proper api
-        //as usages grow things will be added
-        let xml_root_elem_annotation = Annotation {
-            qualified_name: "XmlRootElement".to_string(),
-            params_list: Some(vec![("name".to_string(), "phone-number".to_string())]),
-        };
-        let m1 = Method {
-            annotations: vec![],
-            code: "ArrayList<String> names = new ArrayList<>();".to_owned(),
-            return_type: "ArrayList<String>".to_owned(),
-            parameters: vec![VariableParam {
-                type_bound: "String".to_owned(),
-                name: "name".to_owned(),
-                annotation: vec![],
-            }],
-            name: "addName".to_owned(),
-            modifiers: vec![AccessModifiers::Public],
-        };
-        let m2 = Method {
-            annotations: vec![],
-            code: "System.out.println(\"Hello World\");".to_string(),
-            return_type: "void".to_string(),
-            parameters: vec![VariableParam {
-                type_bound: "String".to_string(),
-                name: "Greeting".to_string(),
-                annotation: vec![],
-            }],
-            modifiers: vec![AccessModifiers::Public, AccessModifiers::Static],
-            name: "main".to_owned(),
-        };
-        let methods = vec![m1.clone(), m2.clone()];
-        let f1 = Field {
-            annotation: vec![Annotation {
-                qualified_name: "Autowired".to_string(),
-                params_list: None,
-            }],
-            modifiers: vec![AccessModifiers::Final, AccessModifiers::Private],
-            name: "type".to_string(),
-            type_: "TypeName".to_string(),
-            initializer: None,
-        };
-        let f2 = Field {
-            name: "name".to_string(),
-            type_: "String".to_string(),
-            modifiers: vec![AccessModifiers::Private, AccessModifiers::Final],
-            initializer: None,
-            annotation: vec![xml_root_elem_annotation.clone()],
-        };
-        let fields = vec![f1.clone(), f2.clone()];
-        let superclass = "Object".to_string();
-        let interface = "Comparable".to_string();
-        let result = class_builder::Builder::new()
-            .package(package_name.to_owned())
-            .import(Import {
-                class_name: "IOException".to_string(),
-                package_name: "java.io".to_string(),
-            })
-            .import(Import {
-                class_name: "UncheckedIOException".to_string(),
-                package_name: "java.io".to_string(),
-            })
-            .import(Import {
-                class_name: "List".to_string(),
-                package_name: "java.util".to_string(),
-            })
-            .import(Import {
-                class_name: "SourceVersion".to_string(),
-                package_name: "javax.lang.model".to_string(),
-            })
-            .import(Import {
-                class_name: "TemplateEngine".to_string(),
-                package_name: "org.openapi.tools".to_string(),
-            })
-            .class_name(class_name.to_string())
-            .extends(superclass.clone())
-            .implements(interface.clone())
-            .class_modifiers(vec![AccessModifiers::Public])
-            .method(m2)
-            .method(m1)
-            .field(f1)
-            .field(f2)
-            .generate_class();
-
-        assert!(result.len() > 0);
-        println!("Result is: \n{result}");
-        assert!(result.contains(class_name));
-        //private,public,protected > abstract > final > static
-        //i could do the asserts in a more property-based testing manner
-        //but right now i wont
-        assert!(!result.contains("final private"));
-        assert!(!result.contains("static public"));
-        assert!(result.contains(&format!("extends {}",superclass.as_str())));
-        assert!(result.contains(&xml_root_elem_annotation.qualified_name));
-        methods
-            .iter()
-            .for_each(|m| assert!(result.contains(&m.name)));
-        fields
-            .iter()
-            .for_each(|f| { assert!(result.contains(&f.name)); });
-        assert!(result.contains(&format!("implements {}",interface)));
+    #[should_panic]
+    fn panics_when_modifiers_used_incorrectly() {
+        let modifiers: Vec<AccessModifiers> =
+            vec![AccessModifiers::Protected, AccessModifiers::Public];
+        let result = modifiers.generate_code();
+        println!("Result: {}", result);
     }
 
+    #[test]
+    #[should_panic]
+    // #[should_panic(expected = "Private and Public modifiers should not be used in the same declaration")]
+    fn panics_when_modifiers_used_incorrectly_2() {
+        let modifiers: Vec<AccessModifiers> =
+            vec![AccessModifiers::Private, AccessModifiers::Public];
+        let result = modifiers.generate_code();
+        println!("Result: {}", result);
+    }
+
+    #[test]
+    #[should_panic]
+    fn panics_when_modifiers_used_incorrectly_3() {
+        let modifiers: Vec<AccessModifiers> =
+            vec![AccessModifiers::Protected, AccessModifiers::Private];
+        let result = modifiers.generate_code();
+        println!("Result: {}", result);
+    }
+
+    fn assert_modifiers_are_generated(java_str: &str, modifiers: Vec<AccessModifiers>) {
+        for modifier in modifiers {
+            assert!(java_str.contains(<AccessModifiers as Into<String>>::into(modifier).as_str()));
+        }
+    }
+
+    fn assert_imports_are_generated(java_str: &str, imports: Vec<Import>, msg: &str) {
+        for imp in imports {
+            assert!(
+                java_str.contains(&format!("import {}.{};", imp.package_name, imp.class_name))
+                    || java_str.contains(&format!(
+                        "import static {}.{}",
+                        imp.package_name, imp.class_name
+                    )),
+                "{}",
+                msg
+            )
+        }
+    }
+
+    fn assert_fields_are_generated(java_str: &str, fields: Vec<Field>, msg: &str) {
+        fields.iter().for_each(|f| {
+            assert!(java_str.contains(&f.name), "{}", msg);
+        });
+    }
+
+    fn assert_methods_are_generated(java_str: &str, methods: Vec<Method>) {
+        methods
+            .iter()
+            .for_each(|m| assert!(java_str.contains(&m.name)));
+    }
+
+    #[derive(Clone)]
     pub struct Import {
         //import org.codegen.package.class_name
         class_name: String,
         package_name: String,
+        //import static org.codegen.package.class_name
+        static_import: bool,
     }
 
     #[derive(Clone)]
@@ -211,7 +107,7 @@ mod java_builder {
         }
     }
 
-    #[derive(Copy, Clone, Eq)]
+    #[derive(Copy, Clone, Eq, Debug)]
     pub enum AccessModifiers {
         Public,
         Private,
@@ -335,6 +231,30 @@ mod java_builder {
             let mut result = "".to_string();
             let mut modifiers = self.clone();
             modifiers.sort_by(|a, b| b.cmp(a));
+            //more rules for modifiers
+            assert!(
+                !(modifiers.contains(&AccessModifiers::Public)
+                    && modifiers.contains(&AccessModifiers::Protected)),
+                "Modifiers {:?} and {:?} should not be used together",
+                &AccessModifiers::Public,
+                &AccessModifiers::Protected
+            );
+            assert!(
+                !(modifiers.contains(&AccessModifiers::Protected)
+                    && modifiers.contains(&AccessModifiers::Private)),
+                "Modifiers {:?} and {:?} should not be used together",
+                &AccessModifiers::Protected,
+                &AccessModifiers::Private
+            );
+            assert!(
+                !(modifiers.contains(&AccessModifiers::Public)
+                    && modifiers.contains(&AccessModifiers::Private)),
+                "Modifiers {:?} and {:?} should not be used together",
+                &AccessModifiers::Public,
+                &AccessModifiers::Private
+            );
+
+            modifiers.dedup();
             for m in modifiers.iter() {
                 result.push_str(&format!("{} ", <AccessModifiers as Into<String>>::into(*m)));
             }
@@ -368,7 +288,10 @@ mod java_builder {
 
     impl Codegen for Import {
         fn generate_code(&self) -> String {
-            format!("import {}.{};\n", self.package_name, self.class_name)
+            match &self.static_import {
+                false => format!("import {}.{};\n", self.package_name, self.class_name),
+                true => format!("import static {}.{};\n", self.package_name, self.class_name),
+            }
         }
     }
 
@@ -385,10 +308,7 @@ mod java_builder {
             let mut sorted_modifiers = self.modifiers.to_owned();
             sorted_modifiers.sort_by(|a, b| b.cmp(a));
             for m in sorted_modifiers {
-                result.push_str(&format!(
-                    "{} ",
-                    <AccessModifiers as Into<String>>::into(m)
-                ));
+                result.push_str(&format!("{} ", <AccessModifiers as Into<String>>::into(m)));
             }
             result.push_str(&format!("{} ", self.type_));
             result.push_str(&format!("{};\n", self.name));
@@ -450,7 +370,7 @@ mod java_builder {
         }
     }
 
-    trait Codegen {
+    pub trait Codegen {
         fn generate_code(&self) -> String;
     }
 
@@ -475,7 +395,6 @@ mod java_builder {
         }
     }
 
-
     #[derive(Hash, Eq, Clone)]
     pub struct Field {
         //might be empty but we dont care
@@ -497,10 +416,132 @@ mod java_builder {
         type_bound: String,
         annotation: Vec<Annotation>,
     }
-    type Extends = Option<Vec<String>>;
 
     mod interface_builder {}
-    mod enum_builder {}
+
+    #[test]
+    pub fn can_generate_enum() {
+        let mut parser = java_parser();
+        // similar to ./TemplateFileType.java
+        let enum_name = "TemplateFileType".to_string();
+        let package_name = "org.openapitools.codegen.api".to_string();
+        let enum_types = vec![
+            ("API".to_string(), "Constants.APIS".to_string()),
+            ("Model".to_string(), "Constants.MODELS".to_string()),
+            ("APIDocs".to_string(), "Constants.API_DOCS".to_string()),
+            ("ModelDocs".to_string(), "MODEL_DOCS".to_string()),
+            ("APITests".to_string(), "Constants.API_TESTS".to_string()),
+            (
+                "SupportingFiles".to_string(),
+                "Constants.SUPPORTING_FILES".to_string(),
+            ),
+        ];
+        let enum_modifiers = vec![AccessModifiers::Public];
+        let mut builder = JavaEnum::new(enum_name.clone(), package_name.clone());
+        // builder = builder.
+        builder = builder.types(enum_types.clone());
+        builder = builder.modifiers(enum_modifiers.clone());
+        let imports = vec![
+            Import {
+                class_name: "StringJoiner".to_string(),
+                package_name: "java.util".to_string(),
+                static_import: true,
+            },
+            Import {
+                class_name: "ArrayList".to_string(),
+                package_name: "java.util".to_string(),
+                static_import: false,
+            },
+        ];
+        builder = builder.imports(imports.clone());
+        let result = builder.generate_code();
+        let tree = parser.parse(result.clone(), None).unwrap();
+        assert!(!tree.root_node().has_error());
+        println!("{}", result);
+
+        assert!(
+            result.contains(&format!("package {};", package_name)),
+            "Package declaration is not included"
+        );
+        assert!(result.contains(&enum_name), "Enum name is not included");
+
+        assert_imports_are_generated(&result, imports, "Imports are not generated properly");
+
+        for types in enum_types {
+            assert!(result.contains(&types.0), "Enum Type is Not included");
+            assert!(result.contains(&types.1), "Enum Value is Not included");
+        }
+    }
+
+    pub struct JavaEnum {
+        enum_types: Vec<(String, String)>,
+        enum_name: String,
+        modifiers: Vec<AccessModifiers>,
+        package: String,
+        imports: Vec<Import>,
+    }
+
+    //what if i could declare the order things call Codegen.generate_code() and get done with
+    //the implementation?
+
+    //also if i abstract enough i can support other JVM languages easily.
+
+    //might extend the String class with some helper methods if it proves useful
+    impl Codegen for JavaEnum {
+        fn generate_code(&self) -> String {
+            let mut result = "".to_string();
+            result.push_str(&format!("package {};\n", &self.package));
+            result.push_str(&self.imports.generate_code());
+            result.push('\n');
+
+            result.push_str(&self.modifiers.generate_code());
+
+            result.push_str(&format!("enum {} {{ \n", self.enum_name));
+            for (position, (enum_type_name, enum_type_value)) in self.enum_types.iter().enumerate()
+            {
+                result.push_str(&format!("\t{}({})", enum_type_name, enum_type_value));
+                if position != &self.enum_types.len() - 1 {
+                    result.push(',')
+                } else {
+                    result.push(';');
+                }
+                result.push('\n');
+            }
+            result.push('\n');
+            result.push('}');
+            result
+        }
+    }
+
+    impl JavaEnum {
+        pub fn new(enum_name: String, package_name: String) -> Self {
+            JavaEnum {
+                enum_types: vec![],
+                modifiers: vec![],
+                imports: vec![],
+                package: package_name,
+                enum_name,
+            }
+        }
+        pub fn types(mut self, enum_types: Vec<(String, String)>) -> Self {
+            enum_types
+                .into_iter()
+                .for_each(|enum_type| self.enum_types.push(enum_type));
+            self
+        }
+
+        pub fn modifiers(mut self, modifiers: Vec<AccessModifiers>) -> Self {
+            modifiers
+                .into_iter()
+                .for_each(|modif| self.modifiers.push(modif));
+            self
+        }
+
+        pub fn imports(mut self, imports: Vec<Import>) -> Self {
+            imports.into_iter().for_each(|imp| self.imports.push(imp));
+            self
+        }
+    }
 
     #[derive(Clone)]
     pub struct Method {
@@ -512,158 +553,283 @@ mod java_builder {
         name: String,
     }
 
-    pub mod class_builder {
-        use super::*;
+    // #[derive(Copy,Clone)]
+    //i should read this: https://doc.rust-lang.org/1.0.0/style/ownership/builders.html
+    pub struct JavaClass {
+        pub imports: Option<Vec<Import>>,
+        pub implements: Option<Vec<Implements>>,
+        pub class_annotations: Option<Vec<Annotation>>,
+        pub fields: HashSet<Field>,
+        pub methods: Vec<Method>,
+        pub class_name: String,
+        pub class_modifiers: Vec<AccessModifiers>,
+        pub superclass: Option<String>,
+        pub package: String,
+    }
 
-        // #[derive(Copy,Clone)]
-        //i should read this: https://doc.rust-lang.org/1.0.0/style/ownership/builders.html
-        pub struct Builder {
-            pub imports: Option<Vec<Import>>,
-            pub implements: Option<Vec<Implements>>,
-            pub class_annotations: Option<Vec<Annotation>>,
-            pub fields: HashSet<Field>,
-            pub methods: Vec<Method>,
-            pub class_name: String,
-            pub class_modifiers: Vec<AccessModifiers>,
-            pub superclass: Option<String>,
-            pub package: String,
-        }
+    impl Codegen for JavaClass {
+        fn generate_code(&self) -> String {
+            assert!(!self.package.is_empty(),"You forgot to include the package declaration, on the Builder object you can use the .package() method.");
+            assert!(
+                !self.class_name.is_empty(),
+                "You forgot to include the class name"
+            );
 
-        impl Builder {
-            pub fn method(mut self, m: Method) -> Builder {
-                self.methods.push(m);
-                self
+            //i could refactor to more immutability in this method
+            //todo run a java formatter after generation
+            //i do some basic formatting so it is not unreadable
+            let mut result: String = "".to_string();
+            result.push_str(&format!("package {};\n", self.package));
+            result.push_str("\n");
+
+            if let Some(ref imports) = self.imports {
+                result.push_str(imports.generate_code().as_str());
+            } else {
+                println!("No imports found you might have forgotten them");
             }
 
-            pub fn new() -> Builder {
-                Builder {
-                    imports: None,
-                    class_name: "".to_owned(),
-                    superclass: None,
-                    class_annotations: None,
-                    class_modifiers: vec![],
-                    implements: None,
-                    fields: HashSet::new(),
-                    package: "".to_owned(),
-                    methods: vec![],
-                }
-            }
-            pub fn class_modifiers(mut self, modifiers: Vec<AccessModifiers>) -> Builder {
-                self.class_modifiers.append(&mut modifiers.to_owned());
-                self
+            result.push_str("\n");
 
+            if self.class_modifiers.is_empty() {
+                println!("No class modifiers you might want to make your class public");
             }
 
-            pub fn package(mut self, package: String) -> Builder {
-                self.package = package;
-                self
+            result.push_str(self.class_modifiers.generate_code().as_str());
+
+            result.push_str(&format!("class {} ", self.class_name));
+
+            if let Some(ref superclass) = self.superclass {
+                result.push_str(&format!("extends {} ", superclass))
             }
 
-            pub fn class_name(mut self, name: String) -> Builder {
-                self.class_name = name;
-                self
+            if let Some(ref implements) = self.implements {
+                result.push_str(implements.generate_code().as_str());
             }
 
-            pub fn extends(mut self, extends: String) -> Builder {
-                self.superclass = Some(extends);
-                self
+            result.push('{');
+            result.push('\n');
+            for field in self.fields.iter() {
+                result.push_str(field.generate_code().as_str());
             }
 
-            pub fn import(mut self, imp: Import) -> Builder {
-                match self.imports {
-                    Some(ref mut imports) => {
-                        imports.push(imp);
-                        self
-                    }
-                    None => {
-                        self.imports = Some(vec![imp]);
-                        self
-                    }
-                }
+            for method in self.methods.iter() {
+                result.push_str(&method.generate_code());
             }
-            pub fn field(mut self, f: Field) -> Builder {
-                self.fields.insert(f);
-                self
-            }
+            result.push_str("\n}\n");
 
-            pub fn annotation(mut self, a: Annotation) -> Builder {
-                match self.class_annotations {
-                    Some(ref mut annotations) => {
-                        annotations.push(a);
-                        self
-                    }
-                    None => {
-                        self.class_annotations = Some(vec![a]);
-                        self
-                    }
-                }
-            }
-            pub fn implements(mut self, interface: Implements) -> Builder {
-                match self.implements {
-                    Some(ref mut implements) => {
-                        implements.push(interface);
-                        self
-                    }
-                    None => {
-                        self.implements = Some(vec![interface]);
-                        self
-                    }
-                }
-            }
-
-            pub fn generate_class_to_file(&self, path_buf: PathBuf) -> Result<String, String> {
-                let result = self.generate_class();
-                fs::write(path_buf, self.generate_class()).expect("TODO: panic message");
-                Ok(result)
-            }
-
-            pub fn generate_class(&self) -> String {
-                //i could refactor to more immutability in this method
-                //todo run a java formatter after generation
-                //i do some basic formatting so it is not unreadable
-                let mut result: String = "".to_string();
-                result.push_str(&format!("package {};\n", self.package));
-                result.push_str("\n");
-
-                if let Some(ref imports) = self.imports {
-                    result.push_str(imports.generate_code().as_str());
-                }
-
-                result.push_str("\n");
-                result.push_str(self.class_modifiers.generate_code().as_str());
-
-                result.push_str(&format!("class {} ", self.class_name));
-
-                if let Some(ref superclass) = self.superclass {
-                    result.push_str(&format!("extends {} ", superclass))
-                }
-
-                if let Some(ref implements) = self.implements {
-                    result.push_str(implements.generate_code().as_str());
-                }
-
-                result.push('{');
-                result.push('\n');
-
-
-                for field in self.fields.iter() {
-                    result.push_str(field.generate_code().as_str());
-                }
-
-
-                for method in self.methods.iter() {
-                    result.push_str(&method.generate_code());
-                }
-
-                result.push_str("\n}\n");
-                result
-            }
-
-            pub fn build(self) -> Self {
-                self
-            }
+            result
         }
     }
+
+    impl JavaClass {
+        pub fn method(mut self, m: Method) -> Self {
+            self.methods.push(m);
+            self
+        }
+
+        pub fn new() -> JavaClass {
+            JavaClass {
+                imports: None,
+                class_name: "".to_owned(),
+                superclass: None,
+                class_annotations: None,
+                class_modifiers: vec![],
+                implements: None,
+                fields: HashSet::new(),
+                package: "".to_owned(),
+                methods: vec![],
+            }
+        }
+        pub fn class_modifiers(mut self, modifiers: Vec<AccessModifiers>) -> Self {
+            self.class_modifiers.append(&mut modifiers.to_owned());
+            self
+        }
+
+        pub fn package(mut self, package: String) -> Self {
+            self.package = package;
+            self
+        }
+
+        pub fn class_name(mut self, name: String) -> Self {
+            self.class_name = name;
+            self
+        }
+
+        pub fn extends(mut self, extends: String) -> Self {
+            self.superclass = Some(extends);
+            self
+        }
+
+        pub fn import(mut self, imp: Import) -> Self {
+            match self.imports {
+                Some(ref mut imports) => {
+                    imports.push(imp);
+                    self
+                }
+                None => {
+                    self.imports = Some(vec![imp]);
+                    self
+                }
+            }
+        }
+        pub fn field(mut self, f: Field) -> Self {
+            self.fields.insert(f);
+            self
+        }
+
+        pub fn annotation(mut self, a: Annotation) -> Self {
+            match self.class_annotations {
+                Some(ref mut annotations) => {
+                    annotations.push(a);
+                    self
+                }
+                None => {
+                    self.class_annotations = Some(vec![a]);
+                    self
+                }
+            }
+        }
+        pub fn implements(mut self, interface: Implements) -> Self {
+            match self.implements {
+                Some(ref mut implements) => {
+                    implements.push(interface);
+                    self
+                }
+                None => {
+                    self.implements = Some(vec![interface]);
+                    self
+                }
+            }
+        }
+
+        pub fn generate_class_to_file(&self, path_buf: PathBuf) -> Result<String, String> {
+            let result = self.generate_code();
+            fs::write(path_buf, self.generate_code()).expect("TODO: panic message");
+            Ok(result)
+        }
+
+        pub fn build(self) -> Self {
+            self
+        }
+    }
+    #[test]
+    pub fn can_generate_class() {
+        //this is like an integration test
+        //todo write smaller finer grained unit tests
+        //similar to the ./FieldSpec.java file
+        //with some extras to cover extra stuff
+        let class_name = "FieldSpec";
+        let package_name = "com.palantir.javapoet";
+        let mut parser = java_parser();
+        //we care about correct syntax in this library and offering a proper api
+        //as usages grow things will be added
+        let xml_root_elem_annotation = Annotation {
+            qualified_name: "XmlRootElement".to_string(),
+            params_list: Some(vec![("name".to_string(), "phone-number".to_string())]),
+        };
+        let m1 = Method {
+            annotations: vec![],
+            code: "ArrayList<String> names = new ArrayList<>();".to_owned(),
+            return_type: "ArrayList<String>".to_owned(),
+            parameters: vec![VariableParam {
+                type_bound: "String".to_owned(),
+                name: "name".to_owned(),
+                annotation: vec![],
+            }],
+            name: "addName".to_owned(),
+            modifiers: vec![AccessModifiers::Public],
+        };
+        let m2 = Method {
+            annotations: vec![],
+            code: "System.out.println(\"Hello World\");".to_string(),
+            return_type: "void".to_string(),
+            parameters: vec![VariableParam {
+                type_bound: "String".to_string(),
+                name: "Greeting".to_string(),
+                annotation: vec![],
+            }],
+            modifiers: vec![AccessModifiers::Public, AccessModifiers::Static],
+            name: "main".to_owned(),
+        };
+        let methods = vec![m1.clone(), m2.clone()];
+        let f1 = Field {
+            annotation: vec![Annotation {
+                qualified_name: "Autowired".to_string(),
+                params_list: None,
+            }],
+            modifiers: vec![AccessModifiers::Final, AccessModifiers::Private],
+            name: "type".to_string(),
+            type_: "TypeName".to_string(),
+            initializer: None,
+        };
+        let f2 = Field {
+            name: "name".to_string(),
+            type_: "String".to_string(),
+            modifiers: vec![AccessModifiers::Private, AccessModifiers::Final],
+            initializer: None,
+            annotation: vec![xml_root_elem_annotation.clone()],
+        };
+        let fields = vec![f1.clone(), f2.clone()];
+        let superclass = "Object".to_string();
+        let interface = "Comparable".to_string();
+        let result = JavaClass::new()
+            .package(package_name.to_owned())
+            .import(Import {
+                class_name: "IOException".to_string(),
+                package_name: "java.io".to_string(),
+                static_import: false,
+            })
+            .import(Import {
+                class_name: "UncheckedIOException".to_string(),
+                package_name: "java.io".to_string(),
+                static_import: false,
+            })
+            .import(Import {
+                class_name: "List".to_string(),
+                package_name: "java.util".to_string(),
+                static_import: false,
+            })
+            .import(Import {
+                class_name: "SourceVersion".to_string(),
+                package_name: "javax.lang.model".to_string(),
+                static_import: false,
+            })
+            .import(Import {
+                class_name: "TemplateEngine".to_string(),
+                package_name: "org.openapi.tools".to_string(),
+                static_import: false,
+            })
+            .class_name(class_name.to_string())
+            .extends(superclass.clone())
+            .implements(interface.clone())
+            .class_modifiers(vec![AccessModifiers::Public])
+            .method(m2)
+            .method(m1)
+            .field(f1)
+            .field(f2)
+            .generate_code();
+
+        let tree = parser.parse(&result, None).unwrap();
+        assert!(!tree.root_node().has_error());
+
+        assert!(result.len() > 0);
+        println!("Result is: \n{result}");
+        assert!(result.contains(class_name));
+        //private,public,protected > abstract > final > static
+        //i could add an assert to ensure that private,public,protected are not in the same declaration
+        //i could do the asserts in a more property-based testing manner
+        //but right now i wont
+        assert!(!result.contains("final private"));
+        assert!(!result.contains("static public"));
+        assert!(result.contains(&format!("extends {}", superclass.as_str())));
+        assert!(result.contains(&xml_root_elem_annotation.qualified_name));
+        methods
+            .iter()
+            .for_each(|m| assert!(result.contains(&m.name)));
+        assert_fields_are_generated(result.as_str(), fields, "Fields are not properly generated");
+        assert!(result.contains(&format!("implements {}", interface)));
+    }
+
     mod record_builder {}
     // not needed rn will be implemented later
     mod annotation_builder {}

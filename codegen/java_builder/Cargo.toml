@@ -3,4 +3,9 @@ name = "java_builder"
 version = "0.1.0"
 edition = "2021"
 
+[build-dependencies]
+cc="*"
+
 [dependencies]
+tree-sitter = "0.24.4"
+tree-sitter-java = "0.23.4"
