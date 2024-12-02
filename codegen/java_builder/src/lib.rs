@@ -71,10 +71,10 @@ pub mod java_builder {
         });
     }
 
-    fn assert_methods_are_generated(java_str: &str, methods: Vec<Method>) {
+    fn assert_methods_are_generated(java_str: &str, methods: Vec<Method>,msg: &str) {
         methods
             .iter()
-            .for_each(|m| assert!(java_str.contains(&m.name)));
+            .for_each(|m| assert!(java_str.contains(&m.name),"{}",msg));
     }
 
     #[derive(Clone)]
@@ -530,6 +530,35 @@ pub mod java_builder {
             self
         }
 
+        pub fn public(mut self) -> Self {
+            self.modifiers.push(AccessModifiers::Public);
+            self
+        }
+        pub fn protected(mut self) -> Self {
+            self.modifiers.push(AccessModifiers::Protected);
+            self
+        }
+
+        pub fn private(mut self) -> Self {
+            self.modifiers.push(AccessModifiers::Private);
+            self
+        }
+
+        pub fn static_(mut self) -> Self {
+            self.modifiers.push(AccessModifiers::Static);
+            self
+        }
+
+        pub fn final_(mut self) -> Self {
+            self.modifiers.push(AccessModifiers::Final);
+            self
+        }
+
+        pub fn abstract_(mut self) -> Self {
+            self.modifiers.push(AccessModifiers::Abstract);
+            self
+        }
+
         pub fn modifiers(mut self, modifiers: Vec<AccessModifiers>) -> Self {
             modifiers
                 .into_iter()
@@ -556,6 +585,7 @@ pub mod java_builder {
     // #[derive(Copy,Clone)]
     //i should read this: https://doc.rust-lang.org/1.0.0/style/ownership/builders.html
     pub struct JavaClass {
+        // modifiers could just be separate methods
         pub imports: Option<Vec<Import>>,
         pub implements: Option<Vec<Implements>>,
         pub class_annotations: Option<Vec<Annotation>>,
@@ -627,16 +657,46 @@ pub mod java_builder {
             self
         }
 
-        pub fn new() -> JavaClass {
+        pub fn public(mut self) -> Self {
+            self.class_modifiers.push(AccessModifiers::Public);
+            self
+        }
+
+        pub fn private(mut self) -> Self {
+            self.class_modifiers.push(AccessModifiers::Private);
+            self
+        }
+
+        pub fn static_(mut self) -> Self {
+            self.class_modifiers.push(AccessModifiers::Static);
+            self
+        }
+
+        pub fn abstract_(mut self) -> Self {
+            self.class_modifiers.push(AccessModifiers::Abstract);
+            self
+        }
+
+        pub fn final_(mut self) -> Self {
+            self.class_modifiers.push(AccessModifiers::Final);
+            self
+        }
+        pub fn protected(mut self) -> Self {
+            self.class_modifiers.push(AccessModifiers::Protected);
+            self
+        }
+
+
+        pub fn new(class_name:String,package:String) -> JavaClass {
             JavaClass {
                 imports: None,
-                class_name: "".to_owned(),
+                class_name,
                 superclass: None,
                 class_annotations: None,
                 class_modifiers: vec![],
                 implements: None,
                 fields: HashSet::new(),
-                package: "".to_owned(),
+                package,
                 methods: vec![],
             }
         }
@@ -772,8 +832,10 @@ pub mod java_builder {
         let fields = vec![f1.clone(), f2.clone()];
         let superclass = "Object".to_string();
         let interface = "Comparable".to_string();
-        let result = JavaClass::new()
-            .package(package_name.to_owned())
+        let result = JavaClass::new(class_name.to_owned(),package_name.to_owned())
+            .public()
+            .extends(superclass.clone())
+            .implements(interface.clone())
             .import(Import {
                 class_name: "IOException".to_string(),
                 package_name: "java.io".to_string(),
@@ -799,10 +861,6 @@ pub mod java_builder {
                 package_name: "org.openapi.tools".to_string(),
                 static_import: false,
             })
-            .class_name(class_name.to_string())
-            .extends(superclass.clone())
-            .implements(interface.clone())
-            .class_modifiers(vec![AccessModifiers::Public])
             .method(m2)
             .method(m1)
             .field(f1)
@@ -812,6 +870,7 @@ pub mod java_builder {
         let tree = parser.parse(&result, None).unwrap();
         assert!(!tree.root_node().has_error());
 
+        assert!(result.contains(package_name.clone()));
         assert!(result.len() > 0);
         println!("Result is: \n{result}");
         assert!(result.contains(class_name));
@@ -823,10 +882,8 @@ pub mod java_builder {
         assert!(!result.contains("static public"));
         assert!(result.contains(&format!("extends {}", superclass.as_str())));
         assert!(result.contains(&xml_root_elem_annotation.qualified_name));
-        methods
-            .iter()
-            .for_each(|m| assert!(result.contains(&m.name)));
-        assert_fields_are_generated(result.as_str(), fields, "Fields are not properly generated");
+        assert_methods_are_generated(&result,methods,"In Class, Methods are not properly generated");
+        assert_fields_are_generated(result.as_str(), fields, "In Class, Fields are not properly generated");
         assert!(result.contains(&format!("implements {}", interface)));
     }
 
