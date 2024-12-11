@@ -1,12 +1,15 @@
 //inspiration from: https://github.com/palantir/javapoet/
 
+mod java_structs;
+
 pub mod java_builder {
 
-    use std::cmp::Ordering;
     use std::collections::HashSet;
     use std::fs;
-    use std::hash::{Hash, Hasher};
+    use std::hash::{Hash};
     use std::path::PathBuf;
+    use crate::java_structs::{Import,GenericParams,Annotation,TypeName,AccessModifiers,Field,Implements,VariableParam};
+
     use tree_sitter::Parser;
 
     fn java_parser() -> Parser {
@@ -32,6 +35,193 @@ pub mod java_builder {
             vec![AccessModifiers::Protected, AccessModifiers::Public];
         let result = modifiers.generate_code();
         println!("Result: {}", result);
+    }
+
+
+    #[test]
+    pub fn can_generate_class() {
+        //this is like an integration test
+        //todo write smaller finer grained unit tests
+        //similar to the ./FieldSpec.java file
+        //with some extras to cover extra stuff
+        let class_name = "FieldSpec";
+        let package_name = "com.palantir.javapoet";
+        //we care about correct syntax in this library and offering a proper api
+        //as usages grow things will be added
+        let xml_root_elem_annotation = Annotation {
+            qualified_name: "XmlRootElement".to_string(),
+            params_list: Some(vec![("name".to_string(), "phone-number".to_string())]),
+        };
+        let m1 = Method {
+            annotations: vec![],
+            code: "ArrayList<String> names = new ArrayList<>();".to_owned(),
+            return_type: "ArrayList<String>".to_owned(),
+            parameters: vec![VariableParam {
+                type_: TypeName { name: "String".to_owned(), generic_params: None },
+                name: "name".to_owned(),
+                annotation: vec![],
+            }],
+            name: "addName".to_owned(),
+            modifiers: vec![AccessModifiers::Public],
+            generic_params: None
+        };
+        let m2 = Method {
+            annotations: vec![],
+            code: "System.out.println(\"Hello World\");".to_string(),
+            return_type: "void".to_string(),
+            parameters: vec![VariableParam {
+                type_: TypeName { name: "String".to_string(), generic_params: None },
+                name: "Greeting".to_string(),
+                annotation: vec![],
+            }],
+            modifiers: vec![AccessModifiers::Public, AccessModifiers::Static],
+            name: "main".to_owned(),
+            generic_params: None,
+        };
+        let methods = vec![m1.clone(), m2.clone()];
+        let f1 = Field {
+            annotation: vec![Annotation {
+                qualified_name: "Autowired".to_string(),
+                params_list: None,
+            }],
+            modifiers: vec![AccessModifiers::Final, AccessModifiers::Private],
+            name: "type".to_string(),
+            type_: TypeName { name: "TypeName".to_string(), generic_params: None },
+            initializer: None,
+        };
+        let f2 = Field {
+            name: "name".to_string(),
+            type_: TypeName { name: "String".to_string(), generic_params: None },
+            modifiers: vec![AccessModifiers::Private, AccessModifiers::Final],
+            initializer: None,
+            annotation: vec![xml_root_elem_annotation.clone()],
+        };
+        let fields = vec![f1.clone(), f2.clone()];
+        let superclass = TypeName { name: "Object".to_string(), generic_params: None };
+        let generic_interface = TypeName {
+            name: "Comparable".to_string(),
+            generic_params: Some(GenericParams { generics: vec!["ChronoLocalDate".to_string()] }),
+        };
+
+        let result = JavaClass::new(class_name.to_owned(), package_name.to_owned())
+            .public()
+            .generic_param("T".to_string())
+            .generic_param("L".to_string())
+            .extends(superclass.clone())
+            .implements(generic_interface.clone())
+            .import(Import {
+                class_name: "IOException".to_string(),
+                package_name: "java.io".to_string(),
+                static_import: false,
+            })
+            .import(Import {
+                class_name: "UncheckedIOException".to_string(),
+                package_name: "java.io".to_string(),
+                static_import: false,
+            })
+            .import(Import {
+                class_name: "List".to_string(),
+                package_name: "java.util".to_string(),
+                static_import: false,
+            })
+            .import(Import {
+                class_name: "SourceVersion".to_string(),
+                package_name: "javax.lang.model".to_string(),
+                static_import: false,
+            })
+            .import(Import {
+                class_name: "TemplateEngine".to_string(),
+                package_name: "org.openapi.tools".to_string(),
+                static_import: false,
+            })
+            .method(m2)
+            .method(m1)
+            .field(f1)
+            .field(f2)
+            .generate_code();
+
+        assert!(result.len() > 0, "Codegen gave empty output");
+        assert_program_is_syntactically_correct(&result);
+        println!("{}", result);
+        assert!(result.contains(package_name.clone()), "The package name was not properly included");
+
+        println!("Result is: \n{result}");
+        assert!(result.contains(class_name), "The classname was not properly included");
+        //private,public,protected > abstract > final > static
+        //i could add an assert to ensure that private,public,protected are not in the same declaration
+        //i could do the asserts in a more property-based testing manner
+        //but right now i wont
+        assert!(!result.contains("final private"));
+        assert!(!result.contains("static public"));
+        assert!(result.contains(&format!("extends {}", superclass.name.as_str())));
+        assert!(result.contains(&xml_root_elem_annotation.qualified_name));
+        assert_methods_are_generated(
+            &result,
+            methods,
+            "In Class, Methods are not properly generated",
+        );
+        assert_fields_are_generated(
+            result.as_str(),
+            fields,
+            "In Class, Fields are not properly generated",
+        );
+        // assert_imports_are_generated(&result,imports)
+
+
+        assert!(result.contains(&format!("implements {}", generic_interface.name)));
+    }
+
+    #[test]
+    pub fn can_generate_enum() {
+
+        // similar to ./TemplateFileType.java
+        let enum_name = "TemplateFileType".to_string();
+        let package_name = "org.openapitools.codegen.api".to_string();
+        let enum_types = vec![
+            ("API".to_string(), "Constants.APIS".to_string()),
+            ("Model".to_string(), "Constants.MODELS".to_string()),
+            ("APIDocs".to_string(), "Constants.API_DOCS".to_string()),
+            ("ModelDocs".to_string(), "MODEL_DOCS".to_string()),
+            ("APITests".to_string(), "Constants.API_TESTS".to_string()),
+            (
+                "SupportingFiles".to_string(),
+                "Constants.SUPPORTING_FILES".to_string(),
+            ),
+        ];
+        let enum_modifiers = vec![AccessModifiers::Public];
+        let mut builder = JavaEnum::new(enum_name.clone(), package_name.clone());
+        // builder = builder.
+        builder = builder.types(enum_types.clone());
+        builder = builder.modifiers(enum_modifiers.clone());
+        let imports = vec![
+            Import {
+                class_name: "StringJoiner".to_string(),
+                package_name: "java.util".to_string(),
+                static_import: true,
+            },
+            Import {
+                class_name: "ArrayList".to_string(),
+                package_name: "java.util".to_string(),
+                static_import: false,
+            },
+        ];
+        builder = builder.imports(imports.clone());
+        let result = builder.generate_code();
+        assert_program_is_syntactically_correct(&result);
+
+
+        assert!(
+            result.contains(&format!("package {};", package_name)),
+            "Package declaration is not included"
+        );
+        assert!(result.contains(&enum_name), "Enum name is not included");
+
+        assert_imports_are_generated(&result, imports, "Imports are not generated properly");
+
+        for types in enum_types {
+            assert!(result.contains(&types.0), "Enum Type is Not included");
+            assert!(result.contains(&types.1), "Enum Value is Not included");
+        }
     }
 
     #[test]
@@ -85,59 +275,7 @@ pub mod java_builder {
             .for_each(|m| assert!(java_str.contains(&m.name), "{}", msg));
     }
 
-    #[derive(Clone)]
-    pub struct Import {
-        //import org.codegen.package.class_name
-        class_name: String,
-        package_name: String,
-        //import static org.codegen.package.class_name
-        static_import: bool,
-    }
 
-    #[derive(Clone)]
-    pub struct Annotation {
-        qualified_name: String,
-        //name = value
-        params_list: Option<Vec<(String, String)>>,
-    }
-
-    impl PartialEq<Self> for Annotation {
-        fn eq(&self, other: &Self) -> bool {
-            self.qualified_name.eq(&other.qualified_name)
-        }
-    }
-
-    impl Eq for Annotation {}
-
-    impl Hash for Annotation {
-        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-            self.qualified_name.hash(state)
-        }
-    }
-
-    impl PartialEq<Self> for TypeName {
-        fn eq(&self, other: &Self) -> bool {
-            self.name.eq(&other.name)
-        }
-    }
-
-    // todo, need a better way to specify empty Generic params
-    // probs an Option
-    impl Eq for TypeName {
-
-    }
-
-    impl Hash for TypeName {
-        fn hash<H: Hasher>(&self, state: &mut H) {
-            self.name.hash(state)
-        }
-    }
-
-    #[derive(Debug, Clone)]
-    pub struct TypeName {
-        name: String,
-        generic_params: Option<GenericParams>,
-    }
 
     impl Codegen for TypeName {
         fn generate_code(&self) -> String {
@@ -150,124 +288,6 @@ pub mod java_builder {
         }
     }
 
-    #[derive(Copy, Clone, Eq, Debug)]
-    pub enum AccessModifiers {
-        Public,
-        Private,
-        Protected,
-        Static,
-        Abstract,
-        Final,
-        //Will not use those
-        //Native
-        //Synchronised
-        //Transient
-        //Volatile
-        //strictfp
-    }
-    impl Hash for AccessModifiers {
-        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-            <AccessModifiers as Into<String>>::into(*self).hash(state)
-        }
-    }
-
-    impl PartialEq<AccessModifiers> for AccessModifiers {
-        fn eq(&self, other: &Self) -> bool {
-            <AccessModifiers as Into<String>>::into(*self)
-                == <AccessModifiers as Into<String>>::into(*other)
-        }
-    }
-
-    impl PartialOrd<AccessModifiers> for AccessModifiers {
-        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-            if <AccessModifiers as Into<String>>::into(*self)
-                == <AccessModifiers as Into<String>>::into(*other)
-            {
-                return Some(Ordering::Equal);
-            }
-            //private,public,protected > abstract > final > static
-            if self.eq(&AccessModifiers::Private)
-                || self.eq(&AccessModifiers::Public)
-                || self.eq(&AccessModifiers::Protected)
-            {
-                return Some(Ordering::Greater);
-            }
-            if other.eq(&AccessModifiers::Protected)
-                || other.eq(&AccessModifiers::Public)
-                || other.eq(&AccessModifiers::Private)
-            {
-                return Some(Ordering::Less);
-            }
-
-            if self.eq(&AccessModifiers::Abstract) {
-                return Some(Ordering::Greater);
-            }
-            if other.eq(&AccessModifiers::Abstract) {
-                return Some(Ordering::Less);
-            }
-
-            if self.eq(&AccessModifiers::Final) {
-                return Some(Ordering::Greater);
-            }
-            if other.eq(&AccessModifiers::Final) {
-                return Some(Ordering::Less);
-            }
-
-            Some(Ordering::Equal)
-        }
-    }
-
-    impl Ord for AccessModifiers {
-        fn cmp(&self, other: &Self) -> Ordering {
-            if <AccessModifiers as Into<String>>::into(*self)
-                == <AccessModifiers as Into<String>>::into(*other)
-            {
-                return Ordering::Equal;
-            }
-            //private,public,protected > abstract > fina
-            if self.eq(&AccessModifiers::Private)
-                || self.eq(&AccessModifiers::Public)
-                || self.eq(&AccessModifiers::Protected)
-            {
-                return Ordering::Greater;
-            }
-            if other.eq(&AccessModifiers::Protected)
-                || other.eq(&AccessModifiers::Public)
-                || other.eq(&AccessModifiers::Private)
-            {
-                return Ordering::Less;
-            }
-
-            if self.eq(&AccessModifiers::Abstract) {
-                return Ordering::Greater;
-            }
-            if other.eq(&AccessModifiers::Abstract) {
-                return Ordering::Less;
-            }
-
-            if self.eq(&AccessModifiers::Final) {
-                return Ordering::Greater;
-            }
-            if other.eq(&AccessModifiers::Final) {
-                return Ordering::Less;
-            }
-
-            Ordering::Equal
-        }
-    }
-
-    impl Into<&str> for AccessModifiers {
-        fn into(self) -> &'static str {
-            match self {
-                AccessModifiers::Public => "public",
-                AccessModifiers::Private => "private",
-                AccessModifiers::Protected => "protected",
-                AccessModifiers::Static => "static",
-                AccessModifiers::Abstract => "abstract",
-                AccessModifiers::Final => "final",
-            }
-        }
-    }
 
     impl Codegen for Vec<AccessModifiers> {
         fn generate_code(&self) -> String {
@@ -413,12 +433,6 @@ pub mod java_builder {
         }
     }
 
-    #[derive(Debug,Clone)]
-    pub struct GenericParams {
-        generics:Vec<String>
-    }
-
-
 
     impl Codegen for GenericParams {
         fn generate_code(&self) -> String {
@@ -445,11 +459,6 @@ pub mod java_builder {
         fn generate_code(&self) -> String;
     }
 
-    impl PartialEq for Field {
-        fn eq(&self, other: &Self) -> bool {
-            self.name.eq(&other.name)
-        }
-    }
 
     impl Codegen for Vec<Implements> {
         fn generate_code(&self) -> String {
@@ -473,82 +482,10 @@ pub mod java_builder {
         }
     }
 
-    #[derive(Hash, Eq, Clone)]
-    pub struct Field {
-        //might be empty but we dont care
-        annotation: Vec<Annotation>,
-        //i want to make this a hashset to avoid duplicates but i dont think someone would
-        //accidentally input duplicate stuff
-        modifiers: Vec<AccessModifiers>,
-        name: String,
-        type_: TypeName,
-        //this type can be stricter
-        initializer: Option<String>,
-    }
-
-    pub type Implements = TypeName;
-
-    #[derive(Clone)]
-    pub struct VariableParam {
-        name: String,
-        type_: TypeName,
-        annotation: Vec<Annotation>,
-    }
 
     mod interface_builder {}
 
-    #[test]
-    pub fn can_generate_enum() {
 
-        // similar to ./TemplateFileType.java
-        let enum_name = "TemplateFileType".to_string();
-        let package_name = "org.openapitools.codegen.api".to_string();
-        let enum_types = vec![
-            ("API".to_string(), "Constants.APIS".to_string()),
-            ("Model".to_string(), "Constants.MODELS".to_string()),
-            ("APIDocs".to_string(), "Constants.API_DOCS".to_string()),
-            ("ModelDocs".to_string(), "MODEL_DOCS".to_string()),
-            ("APITests".to_string(), "Constants.API_TESTS".to_string()),
-            (
-                "SupportingFiles".to_string(),
-                "Constants.SUPPORTING_FILES".to_string(),
-            ),
-        ];
-        let enum_modifiers = vec![AccessModifiers::Public];
-        let mut builder = JavaEnum::new(enum_name.clone(), package_name.clone());
-        // builder = builder.
-        builder = builder.types(enum_types.clone());
-        builder = builder.modifiers(enum_modifiers.clone());
-        let imports = vec![
-            Import {
-                class_name: "StringJoiner".to_string(),
-                package_name: "java.util".to_string(),
-                static_import: true,
-            },
-            Import {
-                class_name: "ArrayList".to_string(),
-                package_name: "java.util".to_string(),
-                static_import: false,
-            },
-        ];
-        builder = builder.imports(imports.clone());
-        let result = builder.generate_code();
-        assert_program_is_syntactically_correct(&result);
-
-
-        assert!(
-            result.contains(&format!("package {};", package_name)),
-            "Package declaration is not included"
-        );
-        assert!(result.contains(&enum_name), "Enum name is not included");
-
-        assert_imports_are_generated(&result, imports, "Imports are not generated properly");
-
-        for types in enum_types {
-            assert!(result.contains(&types.0), "Enum Type is Not included");
-            assert!(result.contains(&types.1), "Enum Value is Not included");
-        }
-    }
 
     pub struct JavaEnum {
         enum_types: Vec<(String, String)>,
@@ -557,13 +494,6 @@ pub mod java_builder {
         package: String,
         imports: Vec<Import>,
     }
-
-    //what if i could declare the order things call Codegen.generate_code() and get done with
-    //the implementation?
-
-    //also if i abstract enough i can support other JVM languages easily.
-
-    //might extend the String class with some helper methods if it proves useful
     impl Codegen for JavaEnum {
         fn generate_code(&self) -> String {
             let mut result = "".to_string();
@@ -578,7 +508,7 @@ pub mod java_builder {
             {
                 result.push_str(&format!("\t{}({})", enum_type_name, enum_type_value));
                 if position != &self.enum_types.len() - 1 {
-                    result.push(',')
+                    result.push(',');
                 } else {
                     result.push(';');
                 }
@@ -660,8 +590,6 @@ pub mod java_builder {
         name: String,
     }
 
-    // #[derive(Copy,Clone)]
-    //i should read this: https://doc.rust-lang.org/1.0.0/style/ownership/builders.html
     pub struct JavaClass {
         // modifiers could just be separate methods
         pub imports: Option<Vec<Import>>,
@@ -790,13 +718,10 @@ pub mod java_builder {
                 },
             }
         }
+
+
         pub fn class_modifiers(mut self, modifiers: Vec<AccessModifiers>) -> Self {
             self.class_modifiers.append(&mut modifiers.to_owned());
-            self
-        }
-
-        pub fn package(mut self, package: String) -> Self {
-            self.package = package;
             self
         }
 
@@ -861,141 +786,6 @@ pub mod java_builder {
         pub fn build(self) -> Self {
             self
         }
-    }
-
-
-
-    #[test]
-    pub fn can_generate_class() {
-        //this is like an integration test
-        //todo write smaller finer grained unit tests
-        //similar to the ./FieldSpec.java file
-        //with some extras to cover extra stuff
-        let class_name = "FieldSpec";
-        let package_name = "com.palantir.javapoet";
-        //we care about correct syntax in this library and offering a proper api
-        //as usages grow things will be added
-        let xml_root_elem_annotation = Annotation {
-            qualified_name: "XmlRootElement".to_string(),
-            params_list: Some(vec![("name".to_string(), "phone-number".to_string())]),
-        };
-        let m1 = Method {
-            annotations: vec![],
-            code: "ArrayList<String> names = new ArrayList<>();".to_owned(),
-            return_type: "ArrayList<String>".to_owned(),
-            parameters: vec![VariableParam {
-                type_: TypeName{ name: "String".to_owned(),generic_params:None },
-                name: "name".to_owned(),
-                annotation: vec![],
-            }],
-            name: "addName".to_owned(),
-            modifiers: vec![AccessModifiers::Public],
-            generic_params:None
-        };
-        let m2 = Method {
-            annotations: vec![],
-            code: "System.out.println(\"Hello World\");".to_string(),
-            return_type: "void".to_string(),
-            parameters: vec![VariableParam {
-                type_: TypeName { name: "String".to_string(),generic_params:None },
-                name: "Greeting".to_string(),
-                annotation: vec![],
-            }],
-            modifiers: vec![AccessModifiers::Public, AccessModifiers::Static],
-            name: "main".to_owned(),
-            generic_params: None,
-        };
-        let methods = vec![m1.clone(), m2.clone()];
-        let f1 = Field {
-            annotation: vec![Annotation {
-                qualified_name: "Autowired".to_string(),
-                params_list: None,
-            }],
-            modifiers: vec![AccessModifiers::Final, AccessModifiers::Private],
-            name: "type".to_string(),
-            type_: TypeName{name:"TypeName".to_string(),generic_params:None},
-            initializer: None,
-        };
-        let f2 = Field {
-            name: "name".to_string(),
-            type_: TypeName{name: "String".to_string(),generic_params:None},
-            modifiers: vec![AccessModifiers::Private, AccessModifiers::Final],
-            initializer: None,
-            annotation: vec![xml_root_elem_annotation.clone()],
-        };
-        let fields = vec![f1.clone(), f2.clone()];
-        let superclass = TypeName {name:"Object".to_string(),generic_params:None};
-        let generic_interface = TypeName {
-            name: "Comparable".to_string(),
-            generic_params: Some(GenericParams { generics: vec!["ChronoLocalDate".to_string()] }),
-        };
-
-        let result = JavaClass::new(class_name.to_owned(), package_name.to_owned())
-            .public()
-            .generic_param("T".to_string())
-            .generic_param("L".to_string())
-            .extends(superclass.clone())
-            .implements(generic_interface.clone())
-            .import(Import {
-                class_name: "IOException".to_string(),
-                package_name: "java.io".to_string(),
-                static_import: false,
-            })
-            .import(Import {
-                class_name: "UncheckedIOException".to_string(),
-                package_name: "java.io".to_string(),
-                static_import: false,
-            })
-            .import(Import {
-                class_name: "List".to_string(),
-                package_name: "java.util".to_string(),
-                static_import: false,
-            })
-            .import(Import {
-                class_name: "SourceVersion".to_string(),
-                package_name: "javax.lang.model".to_string(),
-                static_import: false,
-            })
-            .import(Import {
-                class_name: "TemplateEngine".to_string(),
-                package_name: "org.openapi.tools".to_string(),
-                static_import: false,
-            })
-            .method(m2)
-            .method(m1)
-            .field(f1)
-            .field(f2)
-            .generate_code();
-
-        assert!(result.len() > 0,"Codegen gave empty output");
-        assert_program_is_syntactically_correct(&result);
-        println!("{}",result);
-        assert!(result.contains(package_name.clone()),"The package name was not properly included");
-
-        println!("Result is: \n{result}");
-        assert!(result.contains(class_name),"The classname was not properly included");
-        //private,public,protected > abstract > final > static
-        //i could add an assert to ensure that private,public,protected are not in the same declaration
-        //i could do the asserts in a more property-based testing manner
-        //but right now i wont
-        assert!(!result.contains("final private"));
-        assert!(!result.contains("static public"));
-        assert!(result.contains(&format!("extends {}", superclass.name.as_str())));
-        assert!(result.contains(&xml_root_elem_annotation.qualified_name));
-        assert_methods_are_generated(
-            &result,
-            methods,
-            "In Class, Methods are not properly generated",
-        );
-        assert_fields_are_generated(
-            result.as_str(),
-            fields,
-            "In Class, Fields are not properly generated",
-        );
-        // assert_imports_are_generated(&result,imports)
-
-
-        assert!(result.contains(&format!("implements {}", generic_interface.name)));
     }
 
     mod record_builder {}
