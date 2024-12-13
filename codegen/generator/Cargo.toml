@@ -6,4 +6,6 @@ edition = "2021"
 [dependencies]
 java_builder = { path = "../java_builder" }
 integrations = { path = "../integrations"}
+openapiv3 = "2.0.0"
+serde_json = "1.0.133"
 

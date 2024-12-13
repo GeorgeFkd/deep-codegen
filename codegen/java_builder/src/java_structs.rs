@@ -1,6 +1,5 @@
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
-
 #[derive(Clone)]
 pub struct Import {
     //import org.codegen.package.class_name
@@ -10,10 +9,9 @@ pub struct Import {
     pub static_import: bool,
 }
 
-
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct GenericParams {
-    pub generics:Vec<String>
+    pub generics: Vec<String>,
 }
 
 #[derive(Clone)]
@@ -111,47 +109,6 @@ impl PartialOrd<Self> for AccessModifiers {
 
 impl Eq for AccessModifiers {}
 
-
-
-// impl PartialOrd<AccessModifiers> for AccessModifiers {
-//     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-//         if <AccessModifiers as Into<String>>::into(*self)
-//             == <AccessModifiers as Into<String>>::into(*other)
-//         {
-//             return Some(Ordering::Equal);
-//         }
-//         //private,public,protected > abstract > final > static
-//         if self.eq(&AccessModifiers::Private)
-//             || self.eq(&AccessModifiers::Public)
-//             || self.eq(&AccessModifiers::Protected)
-//         {
-//             return Some(Ordering::Greater);
-//         }
-//         if other.eq(&AccessModifiers::Protected)
-//             || other.eq(&AccessModifiers::Public)
-//             || other.eq(&AccessModifiers::Private)
-//         {
-//             return Some(Ordering::Less);
-//         }
-//
-//         if self.eq(&AccessModifiers::Abstract) {
-//             return Some(Ordering::Greater);
-//         }
-//         if other.eq(&AccessModifiers::Abstract) {
-//             return Some(Ordering::Less);
-//         }
-//
-//         if self.eq(&AccessModifiers::Final) {
-//             return Some(Ordering::Greater);
-//         }
-//         if other.eq(&AccessModifiers::Final) {
-//             return Some(Ordering::Less);
-//         }
-//
-//         Some(Ordering::Equal)
-//     }
-// }
-
 impl Ord for AccessModifiers {
     fn cmp(&self, other: &Self) -> Ordering {
         if <AccessModifiers as Into<String>>::into(*self)
@@ -224,7 +181,6 @@ pub enum AccessModifiers {
     //Volatile
     //strictfp
 }
-
 
 #[derive(Hash, Eq, Clone)]
 pub struct Field {

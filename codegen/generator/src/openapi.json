@@ -1,0 +1,399 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Supermarket Inventory Management API",
+    "description": "API for managing supermarket inventory.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "API Support",
+      "email": "support@supermarket.com"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.supermarket.com/v1",
+      "description": "Production server"
+    },
+    {
+      "url": "https://api.staging.supermarket.com/v1",
+      "description": "Staging server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Inventory",
+      "description": "Operations related to supermarket inventory management"
+    }
+  ],
+  "paths": {
+    "/items": {
+      "get": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "getAllItems",
+        "summary": "Get all inventory items",
+        "description": "Retrieve a list of all items in the inventory.",
+        "responses": {
+          "200": {
+            "description": "A list of inventory items.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Item"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "createNewItem",
+        "summary": "Create a new inventory item",
+        "description": "Add a new item to the inventory.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewItem"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Item created successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Item"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/items/{id}": {
+      "get": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "getItemById",
+        "summary": "Get an inventory item",
+        "description": "Retrieve details of a specific inventory item.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Details of the inventory item.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Item"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Item not found."
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "updateItemById",
+        "summary": "Update an inventory item",
+        "description": "Modify the details of an existing inventory item.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateItem"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Item updated successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Item"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Item not found."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "deleteItemById",
+        "summary": "Delete an inventory item",
+        "description": "Remove an item from the inventory.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Item deleted successfully."
+          },
+          "404": {
+            "description": "Item not found."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Item": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for the inventory item."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the inventory item."
+          },
+          "quantity": {
+            "type": "integer",
+            "description": "Quantity available in stock."
+          },
+          "price": {
+            "type": "number",
+            "format": "float",
+            "description": "Price of the item."
+          },
+          "category": {
+            "type": "string",
+            "description": "Category of the item (e.g., produce, dairy, etc.)."
+          }
+        }, 
+        "x-crud": {
+          "$ref": "#/components/x-crud/ItemCrud"
+        },
+        "x-pages": {
+          "$ref": "#/components/x-pages/ItemList"
+        }
+      },
+      "NewItem": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the inventory item."
+          },
+          "quantity": {
+            "type": "integer",
+            "description": "Quantity available in stock."
+          },
+          "price": {
+            "type": "number",
+            "format": "float",
+            "description": "Price of the item."
+          },
+          "category": {
+            "type": "string",
+            "description": "Category of the item."
+          }
+        },
+        "required": [
+          "name",
+          "quantity",
+          "price"
+        ],
+        "x-crud": {
+          "$ref": "#/components/x-crud/NewItemCrud"
+        },
+        "x-pages": {
+          "$ref": "#/components/x-pages/NewItemForm"
+        }
+      },
+      "UpdateItem": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the inventory item."
+          },
+          "quantity": {
+            "type": "integer",
+            "description": "Quantity available in stock."
+          },
+          "price": {
+            "type": "number",
+            "format": "float",
+            "description": "Price of the item."
+          },
+          "category": {
+            "type": "string",
+            "description": "Category of the item."
+          }
+        },
+        "x-crud": {
+          "$ref": "#/components/x-crud/UpdateItemCrud"
+        },
+        "x-pages": {
+          "$ref": "#/components/x-pages/ItemEdit"
+        }
+      }
+    },
+    "x-crud": {
+      "globalConfig": {
+        "endpoint_prefix": {
+          "Create": "POST_",
+          "Read": "GET_",
+          "Update": "PUT_",
+          "Delete": "DELETE_"
+        },
+        "database": "postgres"
+      },
+      "ItemCrud": [
+        {
+          "Read": {
+            "auth": [
+              "manager",
+              "staff"
+            ]
+          }
+        },
+        {
+          "Update": {
+            "auth": [
+              "manager"
+            ]
+          }
+        }
+      ],
+      "NewItemCrud": [
+        {
+          "Create": {
+            "auth": [
+              "manager"
+            ]
+          }
+        },
+        {
+          "Read": {
+            "auth": [
+              "manager",
+              "staff"
+            ]
+          }
+        }
+      ],
+      "UpdateItemCrud": [
+        {
+          "Update": {
+            "auth": [
+              "manager",
+              "admin"
+            ]
+          }
+        },
+        {
+          "Delete": {
+            "auth": [
+              "admin"
+            ]
+          }
+        }
+      ]
+    },
+    "x-pages": {
+      "ItemList": {
+        "pageId": "item-list",
+        "name": "Inventory List Page",
+        "operations": [
+          "getAllItems",
+          "getItemById"
+        ]
+      },
+      "NewItemForm": {
+        "pageId": "new-item-form",
+        "name": "Add New Item Page",
+        "operations": [
+          "createNewItem"
+        ]
+      },
+      "ItemEdit": {
+        "pageId": "item-edit",
+        "name": "Edit Item Page",
+        "operations": [
+          "updateItemById",
+          "deleteItemById"
+        ]
+      }
+    },
+    "x-cli-params": {
+      "output_directory": {
+        "type": "string",
+        "description": "Directory where the generated files should be saved.",
+        "example": "./generated"
+      },
+      "generate_docs": {
+        "type": "boolean",
+        "description": "Flag to indicate if documentation should be generated.",
+        "default": true
+      },
+      "verbose": {
+        "type": "boolean",
+        "description": "Enable verbose logging.",
+        "default": false
+      },
+      "include_tests": {
+        "type": "boolean",
+        "description": "Flag to include test files in the generated output.",
+        "default": true
+      }
+    }
+  }
+}

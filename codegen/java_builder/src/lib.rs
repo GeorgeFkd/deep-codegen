@@ -1,14 +1,16 @@
 //inspiration from: https://github.com/palantir/javapoet/
 
-mod java_structs;
+pub mod java_structs;
 
 pub mod java_builder {
 
+    pub use crate::java_structs::{
+        AccessModifiers, Annotation, Field, GenericParams, Implements, Import, TypeName,
+        VariableParam,
+    };
     use std::collections::HashSet;
     use std::fs;
-    use std::hash::{Hash};
     use std::path::PathBuf;
-    use crate::java_structs::{Import,GenericParams,Annotation,TypeName,AccessModifiers,Field,Implements,VariableParam};
 
     use tree_sitter::Parser;
 
@@ -20,13 +22,11 @@ pub mod java_builder {
         parser
     }
 
-
-    fn assert_program_is_syntactically_correct(java_str:&str) {
+    fn assert_program_is_syntactically_correct(java_str: &str) {
         let mut parser = java_parser();
         let tree = parser.parse(java_str, None).unwrap();
         assert!(!tree.root_node().has_error());
     }
-
 
     #[test]
     #[should_panic]
@@ -36,7 +36,6 @@ pub mod java_builder {
         let result = modifiers.generate_code();
         println!("Result: {}", result);
     }
-
 
     #[test]
     pub fn can_generate_class() {
@@ -57,20 +56,26 @@ pub mod java_builder {
             code: "ArrayList<String> names = new ArrayList<>();".to_owned(),
             return_type: "ArrayList<String>".to_owned(),
             parameters: vec![VariableParam {
-                type_: TypeName { name: "String".to_owned(), generic_params: None },
+                type_: TypeName {
+                    name: "String".to_owned(),
+                    generic_params: None,
+                },
                 name: "name".to_owned(),
                 annotation: vec![],
             }],
             name: "addName".to_owned(),
             modifiers: vec![AccessModifiers::Public],
-            generic_params: None
+            generic_params: None,
         };
         let m2 = Method {
             annotations: vec![],
             code: "System.out.println(\"Hello World\");".to_string(),
             return_type: "void".to_string(),
             parameters: vec![VariableParam {
-                type_: TypeName { name: "String".to_string(), generic_params: None },
+                type_: TypeName {
+                    name: "String".to_string(),
+                    generic_params: None,
+                },
                 name: "Greeting".to_string(),
                 annotation: vec![],
             }],
@@ -86,21 +91,32 @@ pub mod java_builder {
             }],
             modifiers: vec![AccessModifiers::Final, AccessModifiers::Private],
             name: "type".to_string(),
-            type_: TypeName { name: "TypeName".to_string(), generic_params: None },
+            type_: TypeName {
+                name: "TypeName".to_string(),
+                generic_params: None,
+            },
             initializer: None,
         };
         let f2 = Field {
             name: "name".to_string(),
-            type_: TypeName { name: "String".to_string(), generic_params: None },
+            type_: TypeName {
+                name: "String".to_string(),
+                generic_params: None,
+            },
             modifiers: vec![AccessModifiers::Private, AccessModifiers::Final],
             initializer: None,
             annotation: vec![xml_root_elem_annotation.clone()],
         };
         let fields = vec![f1.clone(), f2.clone()];
-        let superclass = TypeName { name: "Object".to_string(), generic_params: None };
+        let superclass = TypeName {
+            name: "Object".to_string(),
+            generic_params: None,
+        };
         let generic_interface = TypeName {
             name: "Comparable".to_string(),
-            generic_params: Some(GenericParams { generics: vec!["ChronoLocalDate".to_string()] }),
+            generic_params: Some(GenericParams {
+                generics: vec!["ChronoLocalDate".to_string()],
+            }),
         };
 
         let result = JavaClass::new(class_name.to_owned(), package_name.to_owned())
@@ -143,10 +159,16 @@ pub mod java_builder {
         assert!(result.len() > 0, "Codegen gave empty output");
         assert_program_is_syntactically_correct(&result);
         println!("{}", result);
-        assert!(result.contains(package_name.clone()), "The package name was not properly included");
+        assert!(
+            result.contains(package_name.clone()),
+            "The package name was not properly included"
+        );
 
         println!("Result is: \n{result}");
-        assert!(result.contains(class_name), "The classname was not properly included");
+        assert!(
+            result.contains(class_name),
+            "The classname was not properly included"
+        );
         //private,public,protected > abstract > final > static
         //i could add an assert to ensure that private,public,protected are not in the same declaration
         //i could do the asserts in a more property-based testing manner
@@ -167,13 +189,11 @@ pub mod java_builder {
         );
         // assert_imports_are_generated(&result,imports)
 
-
         assert!(result.contains(&format!("implements {}", generic_interface.name)));
     }
 
     #[test]
     pub fn can_generate_enum() {
-
         // similar to ./TemplateFileType.java
         let enum_name = "TemplateFileType".to_string();
         let package_name = "org.openapitools.codegen.api".to_string();
@@ -208,7 +228,6 @@ pub mod java_builder {
         builder = builder.imports(imports.clone());
         let result = builder.generate_code();
         assert_program_is_syntactically_correct(&result);
-
 
         assert!(
             result.contains(&format!("package {};", package_name)),
@@ -275,8 +294,6 @@ pub mod java_builder {
             .for_each(|m| assert!(java_str.contains(&m.name), "{}", msg));
     }
 
-
-
     impl Codegen for TypeName {
         fn generate_code(&self) -> String {
             let mut result = "".to_string();
@@ -287,7 +304,6 @@ pub mod java_builder {
             result
         }
     }
-
 
     impl Codegen for Vec<AccessModifiers> {
         fn generate_code(&self) -> String {
@@ -433,13 +449,12 @@ pub mod java_builder {
         }
     }
 
-
     impl Codegen for GenericParams {
         fn generate_code(&self) -> String {
             let mut result = "".to_string();
             if self.generics.is_empty() {
                 return "".to_string();
-            }else {
+            } else {
                 result.push('<');
             }
             for (pos, generic) in self.generics.iter().enumerate() {
@@ -452,13 +467,11 @@ pub mod java_builder {
             result.push(' ');
             result
         }
-
     }
 
     pub trait Codegen {
         fn generate_code(&self) -> String;
     }
-
 
     impl Codegen for Vec<Implements> {
         fn generate_code(&self) -> String {
@@ -472,7 +485,6 @@ pub mod java_builder {
                 //     result.push_str(&generics.generate_code());
                 // }
 
-
                 if pos != self.len() - 1 {
                     result.push_str(", ");
                 }
@@ -482,10 +494,7 @@ pub mod java_builder {
         }
     }
 
-
     mod interface_builder {}
-
-
 
     pub struct JavaEnum {
         enum_types: Vec<(String, String)>,
@@ -628,7 +637,6 @@ pub mod java_builder {
             result.push_str(&format!("class {}", self.class_name));
             result.push_str(&self.generic_params.generate_code());
 
-
             if let Some(ref superclass) = self.superclass {
                 result.push_str(&format!("extends {}", superclass.name));
                 if let Some(ref generics) = superclass.generic_params {
@@ -651,7 +659,7 @@ pub mod java_builder {
                 result.push_str(&method.generate_code());
             }
             result.push_str("\n}\n");
-            println!("Result is: {}",result);
+            println!("Result is: {}", result);
             result
         }
     }
@@ -713,12 +721,9 @@ pub mod java_builder {
                 fields: HashSet::new(),
                 package,
                 methods: vec![],
-                generic_params: GenericParams{
-                    generics:vec![]
-                },
+                generic_params: GenericParams { generics: vec![] },
             }
         }
-
 
         pub fn class_modifiers(mut self, modifiers: Vec<AccessModifiers>) -> Self {
             self.class_modifiers.append(&mut modifiers.to_owned());
