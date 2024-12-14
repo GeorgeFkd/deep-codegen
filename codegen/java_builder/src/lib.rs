@@ -5,8 +5,8 @@ pub mod java_structs;
 pub mod java_builder {
 
     pub use crate::java_structs::{
-        AccessModifiers, Annotation, Field, GenericParams, Implements, Import, TypeName,
-        VariableParam,
+        AccessModifiers, Annotation, Field, GenericParams, Implements, Import, Interface,
+        JavaClass, Method, TypeName, VariableParam,
     };
     use std::collections::HashSet;
     use std::fs;
@@ -37,6 +37,8 @@ pub mod java_builder {
         println!("Result: {}", result);
     }
 
+    //testing could be per element to decrease the surface
+    //covered by a single test
     #[test]
     pub fn can_generate_class() {
         //this is like an integration test
@@ -54,15 +56,32 @@ pub mod java_builder {
         let m1 = Method {
             annotations: vec![],
             code: "ArrayList<String> names = new ArrayList<>();".to_owned(),
-            return_type: "ArrayList<String>".to_owned(),
-            parameters: vec![VariableParam {
-                type_: TypeName {
-                    name: "String".to_owned(),
-                    generic_params: None,
+            return_type: TypeName {
+                name: "ArrayList".to_string(),
+                generic_params: Some(GenericParams {
+                    generics: vec!["String".to_string()],
+                }),
+            },
+            parameters: vec![
+                VariableParam {
+                    type_: TypeName {
+                        name: "String".to_owned(),
+                        generic_params: None,
+                    },
+                    name: "name".to_owned(),
+                    annotation: vec![],
                 },
-                name: "name".to_owned(),
-                annotation: vec![],
-            }],
+                VariableParam {
+                    annotation: vec![],
+                    name: "combiner".to_string(),
+                    type_: TypeName {
+                        name: "Function".to_string(),
+                        generic_params: Some(GenericParams {
+                            generics: vec!["Integer".to_string(), "Integer".to_string()],
+                        }),
+                    },
+                },
+            ],
             name: "addName".to_owned(),
             modifiers: vec![AccessModifiers::Public],
             generic_params: None,
@@ -70,7 +89,10 @@ pub mod java_builder {
         let m2 = Method {
             annotations: vec![],
             code: "System.out.println(\"Hello World\");".to_string(),
-            return_type: "void".to_string(),
+            return_type: TypeName {
+                name: "void".to_string(),
+                generic_params: None,
+            },
             parameters: vec![VariableParam {
                 type_: TypeName {
                     name: "String".to_string(),
@@ -83,7 +105,19 @@ pub mod java_builder {
             name: "main".to_owned(),
             generic_params: None,
         };
-        let methods = vec![m1.clone(), m2.clone()];
+        let m3 = Method {
+            annotations: vec![],
+            code: "".to_owned(),
+            return_type: TypeName {
+                name: "void".to_owned(),
+                generic_params: None,
+            },
+            parameters: vec![],
+            modifiers: vec![AccessModifiers::Public, AccessModifiers::Static],
+            generic_params: None,
+            name: "EmptyMethod".to_owned(),
+        };
+        let methods = vec![m1.clone(), m2.clone(), m3.clone()];
         let f1 = Field {
             annotation: vec![Annotation {
                 qualified_name: "Autowired".to_string(),
@@ -150,6 +184,7 @@ pub mod java_builder {
                 package_name: "org.openapi.tools".to_string(),
                 static_import: false,
             })
+            .method(m3)
             .method(m2)
             .method(m1)
             .field(f1)
@@ -160,7 +195,7 @@ pub mod java_builder {
         assert_program_is_syntactically_correct(&result);
         println!("{}", result);
         assert!(
-            result.contains(package_name.clone()),
+            result.contains(package_name),
             "The package name was not properly included"
         );
 
@@ -190,6 +225,92 @@ pub mod java_builder {
         // assert_imports_are_generated(&result,imports)
 
         assert!(result.contains(&format!("implements {}", generic_interface.name)));
+    }
+
+    #[test]
+    pub fn can_generate_interface() {
+        let m1 = Method {
+            annotations: vec![],
+            generic_params: None,
+            name: "findByLastName".to_owned(),
+            modifiers: vec![],
+            parameters: vec![VariableParam {
+                name: "lastName".to_owned(),
+                type_: TypeName {
+                    name: "String".to_owned(),
+                    generic_params: None,
+                },
+                annotation: vec![],
+            }],
+            code: "".to_owned(),
+            return_type: TypeName {
+                name: "List".to_owned(),
+                generic_params: Some(GenericParams {
+                    generics: vec!["Customer".to_owned()],
+                }),
+            },
+        };
+
+        let m2 = Method {
+            generic_params: None,
+            name: "findById".to_owned(),
+            annotations: vec![],
+            code: "".to_owned(),
+            modifiers: vec![],
+            parameters: vec![VariableParam {
+                annotation: vec![],
+                name: "id".to_owned(),
+                type_: TypeName {
+                    name: "long".to_owned(),
+                    generic_params: None,
+                },
+            }],
+            return_type: TypeName {
+                name: "Customer".to_owned(),
+                generic_params: None,
+            },
+        };
+        let interface = Interface {
+            name: "CustomerRepository".to_owned(),
+            modifier: AccessModifiers::Public,
+            package: "com.example.accessingdatajpa".to_owned(),
+            imports: vec![
+                Import {
+                    package_name: "java.util".to_owned(),
+                    class_name: "List".to_owned(),
+                    static_import: false,
+                },
+                Import {
+                    package_name: "org.springframework.data.repository".to_owned(),
+                    class_name: "CrudRepository".to_owned(),
+                    static_import: false,
+                },
+            ],
+            generics: None,
+            methods: vec![
+                m1.clone(),
+                m2.clone(), //play with defaults to avoid writing too much code
+            ],
+            annotations: vec![],
+            superclass: Some(TypeName {
+                name: "CrudRepository".to_owned(),
+                generic_params: Some(GenericParams {
+                    generics: vec!["Customer".to_owned(), "Long".to_owned()],
+                }),
+            }),
+        };
+
+        let result = interface.generate_code();
+        assert_program_is_syntactically_correct(&result);
+        assert_methods_are_generated(
+            &result,
+            vec![m1, m2],
+            "Methods for interface are not properly generated",
+        );
+        assert!(
+            result.contains("interface"),
+            "Interface Keyword was not included in interface codegen"
+        );
     }
 
     #[test]
@@ -255,6 +376,24 @@ pub mod java_builder {
 
     #[test]
     #[should_panic]
+    fn panics_when_abstract_method_has_body() {
+        let m = Method {
+            modifiers: vec![AccessModifiers::Abstract],
+            code: "System.out.println('Hello World');".to_string(),
+            name: "Greeting".to_string(),
+            parameters: vec![],
+            annotations: vec![],
+            generic_params: None,
+            return_type: TypeName {
+                name: "void".to_string(),
+                generic_params: None,
+            },
+        };
+        m.generate_code();
+    }
+
+    #[test]
+    #[should_panic]
     fn panics_when_modifiers_used_incorrectly_3() {
         let modifiers: Vec<AccessModifiers> =
             vec![AccessModifiers::Protected, AccessModifiers::Private];
@@ -289,9 +428,53 @@ pub mod java_builder {
     }
 
     fn assert_methods_are_generated(java_str: &str, methods: Vec<Method>, msg: &str) {
-        methods
-            .iter()
-            .for_each(|m| assert!(java_str.contains(&m.name), "{}", msg));
+        for m in methods {
+            assert!(java_str.contains(&m.name), "{}", msg);
+        }
+    }
+
+    impl Codegen for Interface {
+        fn generate_code(&self) -> String {
+            assert!(
+                &self.methods.iter().all(|m| m.code.is_empty()),
+                "Interface methods should have an empty body"
+            );
+            let mut result = "".to_owned();
+            result.push_str(&format!("package {};\n", self.package));
+            result.push_str(&self.imports.generate_code());
+            //todo
+            result.push_str(&(vec![self.modifier].generate_code()));
+            result.push_str(&format!("interface {} ", self.name));
+
+            if let Some(ref superclass) = self.superclass {
+                result.push_str(&format!("extends {}", superclass.name));
+                if let Some(ref generics) = superclass.generic_params {
+                    result.push_str(&generics.generate_code());
+                }
+                result.push(' ');
+            }
+            result.push('{');
+            result.push('\n');
+
+            for m in &self.methods {
+                result.push('\t');
+                result.push_str(&m.modifiers.generate_code());
+                if let Some(generics) = &m.generic_params {
+                    result.push(' ');
+                    result.push_str(&generics.generate_code());
+                    result.push(' ');
+                }
+                result.push_str(&m.return_type.generate_code());
+                result.push(' ');
+                result.push_str(&m.name);
+                result.push_str(&m.parameters.generate_code());
+                result.push(';');
+                result.push('\n');
+            }
+            result.push('}');
+            println!("{}", result);
+            return result;
+        }
     }
 
     impl Codegen for TypeName {
@@ -416,24 +599,48 @@ pub mod java_builder {
         }
     }
 
-    impl Codegen for Method {
+    impl Codegen for Vec<VariableParam> {
         fn generate_code(&self) -> String {
-            let mut result = "".to_string();
-            let mut sorted_method_modifiers = self.modifiers.to_owned();
-            sorted_method_modifiers.sort_by(|a, b| b.cmp(a));
-            for m in sorted_method_modifiers {
-                result.push_str(&format!("{} ", <AccessModifiers as Into<String>>::into(m)));
-            }
-            result.push_str(&format!("{} ", self.return_type));
-            result.push_str(&format!("{}", self.name));
+            let mut result = "".to_owned();
             result.push('(');
-            for param in self.parameters.iter() {
+            for (pos, param) in self.iter().enumerate() {
                 for ann in param.annotation.iter() {
                     result.push_str(ann.generate_code().as_str());
                 }
-                result.push_str(&format!("{} {}", param.type_.generate_code(), param.name))
+                result.push_str(&format!("{} {}", param.type_.generate_code(), param.name));
+                if pos != self.len() - 1 {
+                    result.push(',');
+                }
             }
             result.push(')');
+            result
+        }
+    }
+
+    impl Codegen for Method {
+        fn generate_code(&self) -> String {
+            if self.modifiers.contains(&AccessModifiers::Abstract) {
+                assert!(
+                    &self.code.is_empty(),
+                    "Abstract methods should not have a body"
+                );
+            }
+
+            let mut result = "".to_string();
+
+            //reminder: it is valid code to not have modifiers
+            //might make it panic to discourage weird code
+            result.push_str(&self.modifiers.generate_code());
+
+            result.push_str(&format!("{} ", self.return_type.generate_code()));
+            result.push_str(&format!("{}", self.name));
+            result.push_str(&self.parameters.generate_code());
+
+            if self.modifiers.contains(&AccessModifiers::Abstract) {
+                result.push(';');
+                result.push('\n');
+                return result;
+            }
             result.push('{');
             if self.code.is_empty() {
                 result.push('}');
@@ -493,8 +700,14 @@ pub mod java_builder {
             result
         }
     }
+    //these could also be impl Into<> for <>
+    fn extract_interface_from_class(class_obj: &JavaClass) -> Interface {
+        todo!("Class to interface conversion is under construction");
+    }
 
-    mod interface_builder {}
+    fn implement_interface(interface: &Interface) -> JavaClass {
+        todo!("Automatic Interface implementation is under construction");
+    }
 
     pub struct JavaEnum {
         enum_types: Vec<(String, String)>,
@@ -540,9 +753,7 @@ pub mod java_builder {
             }
         }
         pub fn types(mut self, enum_types: Vec<(String, String)>) -> Self {
-            enum_types
-                .into_iter()
-                .for_each(|enum_type| self.enum_types.push(enum_type));
+            self.enum_types.extend(enum_types);
             self
         }
 
@@ -576,41 +787,14 @@ pub mod java_builder {
         }
 
         pub fn modifiers(mut self, modifiers: Vec<AccessModifiers>) -> Self {
-            modifiers
-                .into_iter()
-                .for_each(|modif| self.modifiers.push(modif));
+            self.modifiers.extend(modifiers);
             self
         }
 
         pub fn imports(mut self, imports: Vec<Import>) -> Self {
-            imports.into_iter().for_each(|imp| self.imports.push(imp));
+            self.imports.extend(imports);
             self
         }
-    }
-
-    #[derive(Clone)]
-    pub struct Method {
-        annotations: Vec<Annotation>,
-        modifiers: Vec<AccessModifiers>,
-        generic_params: Option<GenericParams>,
-        parameters: Vec<VariableParam>,
-        return_type: String,
-        code: String,
-        name: String,
-    }
-
-    pub struct JavaClass {
-        // modifiers could just be separate methods
-        pub imports: Option<Vec<Import>>,
-        pub implements: Option<Vec<Implements>>,
-        pub class_annotations: Option<Vec<Annotation>>,
-        pub fields: HashSet<Field>,
-        pub methods: Vec<Method>,
-        pub class_name: String,
-        pub generic_params: GenericParams,
-        pub class_modifiers: Vec<AccessModifiers>,
-        pub superclass: Option<TypeName>,
-        pub package: String,
     }
 
     impl Codegen for JavaClass {

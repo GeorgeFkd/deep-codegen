@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 #[derive(Clone)]
 pub struct Import {
@@ -7,6 +8,52 @@ pub struct Import {
     pub package_name: String,
     //import static org.codegen.package.class_name
     pub static_import: bool,
+}
+
+//TODO i need to find a way to not have to repeat the package and imports things here
+#[derive(Clone)]
+pub struct Interface {
+    pub annotations: Vec<Annotation>,
+    pub package: String,
+    pub imports: Vec<Import>,
+    pub superclass: Option<TypeName>,
+    pub name: String,
+    //i need a way to
+    pub methods: Vec<Method>,
+    //abstract should not be used
+    //should static be used? it does not make that much sense
+    pub modifier: AccessModifiers,
+    //i dont like the GenericParams thing
+    //it might be better to just do a Vec<Generic>
+    //so it is easy to reference the same generic
+    //in different places
+    pub generics: Option<GenericParams>,
+}
+
+pub struct JavaClass {
+    // modifiers could just be separate methods
+    pub imports: Option<Vec<Import>>,
+    pub implements: Option<Vec<Implements>>,
+    pub class_annotations: Option<Vec<Annotation>>,
+    pub fields: HashSet<Field>,
+    pub methods: Vec<Method>,
+    pub class_name: String,
+    pub generic_params: GenericParams,
+    pub class_modifiers: Vec<AccessModifiers>,
+    pub superclass: Option<TypeName>,
+    pub package: String,
+}
+//will probably split it up in methodDecl and methodBody
+#[derive(Clone)]
+pub struct Method {
+    pub annotations: Vec<Annotation>,
+    pub modifiers: Vec<AccessModifiers>,
+    pub generic_params: Option<GenericParams>,
+    pub parameters: Vec<VariableParam>,
+    pub return_type: TypeName,
+    pub code: String,
+    pub name: String,
+    //add throws clause
 }
 
 #[derive(Debug, Clone)]
