@@ -1,6 +1,8 @@
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
+//TODO implement builders
+//and put the required things on the new call
 #[derive(Clone)]
 pub struct Import {
     //import org.codegen.package.class_name
@@ -10,8 +12,24 @@ pub struct Import {
     pub static_import: bool,
 }
 
+impl Import {
+    pub fn new(package_name: String, class_name: String) -> Self {
+        assert!(package_name.contains("."),"Package name does not have dots, the params in the ::new method are the other way around");
+        Self {
+            class_name,
+            package_name,
+            static_import: false,
+        }
+    }
+
+    pub fn static_(mut self) -> Self {
+        self.static_import = true;
+        self
+    }
+}
 //TODO i need to find a way to not have to repeat the package and imports things here
-#[derive(Clone)]
+
+#[derive(Clone, Default)]
 pub struct Interface {
     pub annotations: Vec<Annotation>,
     pub package: String,
@@ -213,8 +231,9 @@ impl PartialEq for Field {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub enum AccessModifiers {
+    #[default]
     Public,
     Private,
     Protected,

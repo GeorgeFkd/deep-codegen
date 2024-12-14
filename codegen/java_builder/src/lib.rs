@@ -159,31 +159,23 @@ pub mod java_builder {
             .generic_param("L".to_string())
             .extends(superclass.clone())
             .implements(generic_interface.clone())
-            .import(Import {
-                class_name: "IOException".to_string(),
-                package_name: "java.io".to_string(),
-                static_import: false,
-            })
-            .import(Import {
-                class_name: "UncheckedIOException".to_string(),
-                package_name: "java.io".to_string(),
-                static_import: false,
-            })
-            .import(Import {
-                class_name: "List".to_string(),
-                package_name: "java.util".to_string(),
-                static_import: false,
-            })
-            .import(Import {
-                class_name: "SourceVersion".to_string(),
-                package_name: "javax.lang.model".to_string(),
-                static_import: false,
-            })
-            .import(Import {
-                class_name: "TemplateEngine".to_string(),
-                package_name: "org.openapi.tools".to_string(),
-                static_import: false,
-            })
+            .import(Import::new(
+                "java.io".to_string(),
+                "IOException".to_string(),
+            ))
+            .import(Import::new(
+                "java.io".to_string(),
+                "UncheckedIOException".to_string(),
+            ))
+            .import(Import::new("java.util".to_string(), "List".to_string()))
+            .import(Import::new(
+                "javax.lang.model".to_string(),
+                "SourceVersion".to_string(),
+            ))
+            .import(Import::new(
+                "org.openapi.tools".to_string(),
+                "TemplateEngine".to_string(),
+            ))
             .method(m3)
             .method(m2)
             .method(m1)
@@ -275,29 +267,23 @@ pub mod java_builder {
             modifier: AccessModifiers::Public,
             package: "com.example.accessingdatajpa".to_owned(),
             imports: vec![
-                Import {
-                    package_name: "java.util".to_owned(),
-                    class_name: "List".to_owned(),
-                    static_import: false,
-                },
-                Import {
-                    package_name: "org.springframework.data.repository".to_owned(),
-                    class_name: "CrudRepository".to_owned(),
-                    static_import: false,
-                },
+                Import::new("java.util".to_owned(), "List".to_owned()),
+                Import::new(
+                    "org.springframework.data.repository".to_owned(),
+                    "CrudRepository".to_owned(),
+                ),
             ],
-            generics: None,
             methods: vec![
                 m1.clone(),
                 m2.clone(), //play with defaults to avoid writing too much code
             ],
-            annotations: vec![],
             superclass: Some(TypeName {
                 name: "CrudRepository".to_owned(),
                 generic_params: Some(GenericParams {
                     generics: vec!["Customer".to_owned(), "Long".to_owned()],
                 }),
             }),
+            ..Default::default()
         };
 
         let result = interface.generate_code();
@@ -335,16 +321,8 @@ pub mod java_builder {
         builder = builder.types(enum_types.clone());
         builder = builder.modifiers(enum_modifiers.clone());
         let imports = vec![
-            Import {
-                class_name: "StringJoiner".to_string(),
-                package_name: "java.util".to_string(),
-                static_import: true,
-            },
-            Import {
-                class_name: "ArrayList".to_string(),
-                package_name: "java.util".to_string(),
-                static_import: false,
-            },
+            Import::new("java.util".to_string(), "StringJoiner".to_string()).static_(),
+            Import::new("java.util".to_string(), "ArrayList".to_string()),
         ];
         builder = builder.imports(imports.clone());
         let result = builder.generate_code();
