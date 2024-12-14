@@ -262,29 +262,26 @@ pub mod java_builder {
                 generic_params: None,
             },
         };
-        let interface = Interface {
-            name: "CustomerRepository".to_owned(),
-            modifier: AccessModifiers::Public,
-            package: "com.example.accessingdatajpa".to_owned(),
-            imports: vec![
-                Import::new("java.util".to_owned(), "List".to_owned()),
-                Import::new(
-                    "org.springframework.data.repository".to_owned(),
-                    "CrudRepository".to_owned(),
-                ),
-            ],
-            methods: vec![
-                m1.clone(),
-                m2.clone(), //play with defaults to avoid writing too much code
-            ],
-            superclass: Some(TypeName {
-                name: "CrudRepository".to_owned(),
-                generic_params: Some(GenericParams {
-                    generics: vec!["Customer".to_owned(), "Long".to_owned()],
-                }),
+        let interface = Interface::new(
+            "com.example.accessingdatajpa".to_owned(),
+            "CustomerRepository".to_owned(),
+        )
+        .import(Import::new("java.util".to_owned(), "List".to_owned()))
+        .import(Import::new(
+            "org.springframework.data.repository".to_owned(),
+            "CrudRepository".to_owned(),
+        ))
+        .modifier(AccessModifiers::Public)
+        .methods(vec![
+            m1.clone(),
+            m2.clone(), //play with defaults to avoid writing too much code
+        ])
+        .extends(TypeName {
+            name: "CrudRepository".to_owned(),
+            generic_params: Some(GenericParams {
+                generics: vec!["Customer".to_owned(), "Long".to_owned()],
             }),
-            ..Default::default()
-        };
+        });
 
         let result = interface.generate_code();
         assert_program_is_syntactically_correct(&result);

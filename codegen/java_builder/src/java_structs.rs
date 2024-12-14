@@ -29,7 +29,7 @@ impl Import {
 }
 //TODO i need to find a way to not have to repeat the package and imports things here
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Interface {
     pub annotations: Vec<Annotation>,
     pub package: String,
@@ -45,9 +45,56 @@ pub struct Interface {
     //it might be better to just do a Vec<Generic>
     //so it is easy to reference the same generic
     //in different places
-    pub generics: Option<GenericParams>,
+    pub generics: GenericParams,
 }
 
+impl Interface {
+    pub fn new(package_name: String, interface_name: String) -> Self {
+        assert!(
+            package_name.contains("."),
+            "Interface::new(package,name) is the correct usage, reverse the order of the params"
+        );
+        Self {
+            name: interface_name,
+            package: package_name,
+            generics: GenericParams { generics: vec![] },
+            modifier: AccessModifiers::Public,
+            methods: vec![],
+            superclass: None,
+            imports: vec![],
+            annotations: vec![],
+        }
+    }
+    pub fn modifier(mut self, m: AccessModifiers) -> Self {
+        self.modifier = m;
+        self
+    }
+
+    pub fn extends(mut self, sup: TypeName) -> Self {
+        self.superclass = Some(sup);
+        self
+    }
+
+    pub fn methods(mut self, methods: Vec<Method>) -> Self {
+        self.methods.extend(methods);
+        self
+    }
+
+    pub fn import(mut self, i: Import) -> Self {
+        self.imports.push(i);
+        self
+    }
+
+    pub fn annotation(mut self, a: Annotation) -> Self {
+        self.annotations.push(a);
+        self
+    }
+
+    pub fn generic_param(mut self, g: String) -> Self {
+        self.generics.generics.push(g);
+        self
+    }
+}
 pub struct JavaClass {
     // modifiers could just be separate methods
     pub imports: Option<Vec<Import>>,
