@@ -4,17 +4,16 @@ pub mod java_structs;
 
 pub mod java_builder {
 
+    pub use crate::java_structs::annotations::Annotation;
+    pub use crate::java_structs::classes::JavaClass;
+    pub use crate::java_structs::enums::JavaEnum;
+    pub use crate::java_structs::fields::Field;
     pub use crate::java_structs::imports::*;
     pub use crate::java_structs::interfaces::*;
     pub use crate::java_structs::methods::*;
-
-    pub use crate::java_structs::{
-        AccessModifiers, Annotation, Codegen, Field, GenericParams, Implements, JavaClass,
-        JavaEnum, TypeName, VariableParam,
-    };
-    use std::collections::HashSet;
-    use std::fs;
-    use std::path::PathBuf;
+    pub use crate::java_structs::modifiers::AccessModifiers;
+    pub use crate::java_structs::types::*;
+    pub use crate::java_structs::{Codegen, VariableParam};
 
     use tree_sitter::Parser;
 
