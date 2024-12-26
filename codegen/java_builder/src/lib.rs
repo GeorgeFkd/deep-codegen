@@ -1,13 +1,12 @@
 //inspiration from: https://github.com/palantir/javapoet/
 
 pub mod java_structs;
-
 pub mod java_builder {
-
+    //for some reason i cannot do use java_structs::*; which is reasonable actually
     pub use crate::java_structs::annotations::Annotation;
     pub use crate::java_structs::classes::JavaClass;
     pub use crate::java_structs::enums::JavaEnum;
-    pub use crate::java_structs::fields::Field;
+    pub use crate::java_structs::fields::*;
     pub use crate::java_structs::imports::*;
     pub use crate::java_structs::interfaces::*;
     pub use crate::java_structs::methods::*;
