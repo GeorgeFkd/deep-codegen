@@ -1,7 +1,139 @@
 //inspiration from: https://github.com/palantir/javapoet/
 
+pub mod java_project;
 pub mod java_structs;
-pub mod java_builder {
+#[cfg(test)]
+pub mod java_project_tests {
+
+    use crate::java_project::maven_builder::{Generate, PomXml};
+    use std::env;
+    use std::process::{Command, Stdio};
+    fn maven_is_installed() -> bool {
+        let mvn = Command::new("mvn")
+            .arg("--version")
+            .stdout(Stdio::null())
+            .status();
+        if let Ok(command_result) = mvn {
+            return command_result.success();
+        } else {
+            println!("Something went wrong when executing xmllint");
+            return false;
+        }
+    }
+    use std::path;
+    fn mvn_project_compiles() -> bool {
+        assert!(
+            maven_is_installed(),
+            "mvn command is not present, install the maven package from your package manager"
+        );
+        let cwd = env::current_dir().expect("for some reason couldnt get the current dir");
+        println!("The current dir is {:?}", cwd);
+        let pom_path = cwd.join("pom.xml");
+        assert!(
+            pom_path.exists(),
+            "pom.xml maven file is not present in the current working directory"
+        );
+        let mvn = Command::new("mvn").arg("clean").arg("compile");
+        false
+    }
+
+    fn xml_lint_is_installed() -> bool {
+        //just running the command returns a help message and exit code == 1
+        let xmllint = Command::new("xmllint")
+            .arg("--version")
+            .stdout(Stdio::null())
+            .status();
+        if let Ok(command_result) = xmllint {
+            return command_result.success();
+        } else {
+            println!("Something went wrong when executing xmllint");
+            return false;
+        }
+    }
+
+    use std::fs::write;
+    fn assert_xml_structure_with_xsd(res: &str) {
+        assert!(xml_lint_is_installed(), "Xmllint command is not present");
+        let _ = write("tmp.xml", res).expect("writing to temp file failed");
+        let xmllint = Command::new("xmllint")
+            .arg("--noout")
+            .arg("--schema")
+            .arg("./maven-4.0.0.xsd")
+            .arg("./tmp.xml")
+            .status()
+            .expect("Something went wrong when executing the xmllint command");
+        assert!(xmllint.success(), "Xml linting failed");
+    }
+
+    #[test]
+    fn can_create_pom_xml() {
+        let mut pom_xml = PomXml::new();
+        let descr = "This is a project to showcase the methodology of runtime verification in the context of event based systems".to_owned();
+        let project = "TempContRvTool".to_owned();
+        let java_version = "17".to_owned();
+        let group_id = "org.javacodegen".to_owned();
+        let artifact_id = "rvtool".to_owned();
+        pom_xml = pom_xml.description(descr.clone());
+        pom_xml = pom_xml.project_name(project.clone());
+        pom_xml = pom_xml.java_version(java_version.clone());
+        pom_xml = pom_xml.group_id(group_id.clone());
+        pom_xml = pom_xml.artifact(artifact_id.clone());
+        let sb_conf_library = (
+            "org.springframework.boot",
+            "spring-boot-configuration-processor",
+        );
+        pom_xml = pom_xml.add_library(
+            sb_conf_library.0.clone().into(),
+            sb_conf_library.1.clone().into(),
+        );
+
+        pom_xml = pom_xml.spring_boot();
+        pom_xml = pom_xml.postgresql();
+        pom_xml = pom_xml.lombok();
+        pom_xml = pom_xml.spring_boot_devtools();
+
+        let result = pom_xml.generate();
+        assert!(
+            !result.is_empty(),
+            "the result of pom.xml generation was an empty string"
+        );
+        assert_xml_structure_with_xsd(&result);
+        assert!(
+            result.contains(&descr),
+            "Description is not properly included"
+        );
+
+        assert!(
+            result.contains(&project),
+            "Project name is not properly included in pom.xml"
+        );
+        assert!(
+            result.contains(&("<java.version>".to_owned() + &java_version + &"</java.version>")),
+            "Java version is not properly included in pom.xml"
+        );
+
+        assert!(
+            result.contains(&group_id),
+            "Group id is not properly included in pom.xml"
+        );
+
+        assert!(
+            result.contains(&artifact_id),
+            "Artifact id is not properly included in pom.xml"
+        );
+
+        assert!(
+            result.contains("<dependencies>"),
+            "Dependencies are not properly included in pom.xml"
+        );
+        assert!(result.contains("org.springframework.boot"));
+        assert!(result.contains("org.postgresql"));
+        assert!(result.contains("org.projectlombok"));
+        assert!(result.contains("spring-boot-devtools"));
+    }
+}
+
+pub mod java_structs_tests {
     //for some reason i cannot do use java_structs::*; which is reasonable actually
     pub use crate::java_structs::annotations::Annotation;
     pub use crate::java_structs::classes::JavaClass;
@@ -16,7 +148,7 @@ pub mod java_builder {
 
     use tree_sitter::Parser;
 
-    fn java_parser() -> Parser {
+    fn make_java_parser() -> Parser {
         let mut parser = Parser::new();
         parser
             .set_language(&tree_sitter_java::LANGUAGE.into())
@@ -25,7 +157,7 @@ pub mod java_builder {
     }
 
     fn assert_program_is_syntactically_correct(java_str: &str) {
-        let mut parser = java_parser();
+        let mut parser = make_java_parser();
         let tree = parser.parse(java_str, None).unwrap();
         assert!(!tree.root_node().has_error());
     }

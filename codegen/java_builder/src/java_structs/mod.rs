@@ -16,6 +16,9 @@ pub trait Codegen {
     fn generate_code(&self) -> String;
 }
 
+//TODO: implement string concatenation with + operator
+//for brevity
+
 #[derive(Clone)]
 pub struct VariableParam {
     pub name: String,
