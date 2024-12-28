@@ -5,7 +5,7 @@ pub mod java_structs;
 #[cfg(test)]
 pub mod java_project_tests {
 
-    use crate::java_project::maven_builder::{Generate, PomXml};
+    use crate::java_project::maven_builder::{create_maven_project_folders, Generate, PomXml};
     use std::env;
     use std::process::{Command, Stdio};
     fn maven_is_installed() -> bool {
@@ -51,7 +51,7 @@ pub mod java_project_tests {
         }
     }
 
-    use std::fs::write;
+    use std::fs::{write, File};
     fn assert_xml_structure_with_xsd(res: &str) {
         assert!(xml_lint_is_installed(), "Xmllint command is not present");
         let _ = write("tmp.xml", res).expect("writing to temp file failed");
@@ -65,6 +65,83 @@ pub mod java_project_tests {
         assert!(xmllint.success(), "Xml linting failed");
     }
 
+    fn assert_dir_exists(dir: &str) {
+        assert!(
+            Path::new(dir).is_dir(),
+            "{} folder was not created properly",
+            dir
+        );
+    }
+
+    use std::path::Path;
+    #[test]
+    fn can_create_maven_folders() {
+        let top_folder = "generated";
+        let mut pom_xml = PomXml::new();
+        let descr = "This is a project to showcase the methodology of runtime verification in the context of event based systems".to_owned();
+        let project = "TempContRvTool".to_owned();
+        let java_version = "17".to_owned();
+        let group_id = "org.javacodegen".to_owned();
+        let artifact_id = "rvtool".to_owned();
+        pom_xml = pom_xml.description(descr.clone());
+        pom_xml = pom_xml.project_name(project.clone());
+        pom_xml = pom_xml.java_version(java_version.clone());
+        pom_xml = pom_xml.group_id(group_id.clone());
+        pom_xml = pom_xml.artifact(artifact_id.clone());
+
+        create_maven_project_folders(pom_xml, top_folder);
+        let code_folder = &(top_folder.to_owned() + &"/src/main/java/org/javacodegen/rvtool");
+        assert_dir_exists(code_folder);
+
+        let resources_folder = &(top_folder.to_owned() + &"/src/main/resources");
+        assert_dir_exists(resources_folder);
+
+        let test_folder = &(top_folder.to_owned() + &"/src/test/java/org/javacodegen/rvtool");
+        assert_dir_exists(test_folder);
+
+        let mainfile = code_folder.to_owned() + "/" + &project + ".java";
+
+        assert!(
+            Path::new(&mainfile).exists(),
+            "Main file {} was not created correctly",
+            mainfile
+        );
+        cleanup_folder(top_folder);
+    }
+    use std::fs;
+    fn cleanup_folder(dir: &str) {
+        if let Err(e) = fs::remove_dir_all(dir) {
+            assert!(false, "Removing all files from folder failed");
+        }
+    }
+
+    fn create_pom_xml() -> PomXml {
+        let mut pom_xml = PomXml::new();
+        let descr = "This is a project to showcase the methodology of runtime verification in the context of event based systems".to_owned();
+        let project = "TempContRvTool".to_owned();
+        let java_version = "17".to_owned();
+        let group_id = "org.javacodegen".to_owned();
+        let artifact_id = "rvtool".to_owned();
+        pom_xml = pom_xml.description(descr.clone());
+        pom_xml = pom_xml.project_name(project.clone());
+        pom_xml = pom_xml.java_version(java_version.clone());
+        pom_xml = pom_xml.group_id(group_id.clone());
+        pom_xml = pom_xml.artifact(artifact_id.clone());
+        let sb_conf_library = (
+            "org.springframework.boot",
+            "spring-boot-configuration-processor",
+        );
+        pom_xml = pom_xml.add_library(
+            sb_conf_library.0.clone().into(),
+            sb_conf_library.1.clone().into(),
+        );
+
+        pom_xml = pom_xml.spring_boot();
+        pom_xml = pom_xml.postgresql();
+        pom_xml = pom_xml.lombok();
+        pom_xml = pom_xml.spring_boot_devtools();
+        pom_xml
+    }
     #[test]
     fn can_create_pom_xml() {
         let mut pom_xml = PomXml::new();

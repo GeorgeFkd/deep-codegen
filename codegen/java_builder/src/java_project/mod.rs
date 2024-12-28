@@ -8,23 +8,107 @@
 // - extras: CRUDs + Search
 //
 //
+//
 pub mod maven_builder {
-    //add_library(group_id,name,version) -> Self
-    //add_library(group_id,name) -> Self
-    //project_name(name) -> Self
-    //description(descr) -> Self
-    //java_version(version) -> Self
-    //group_id(id) -> Self
-    //db_postgres() -> Self
-    //spring_boot() -> Self
-    //for spring boot libraries can basically look up start.spring.io
-    //might generate the builder code for maven from https://maven.apache.org/xsd/maven-4.0.0.xsd
-    //with use of an AI
+    use classes::JavaClass;
+
+    use crate::java_structs::*;
+    use std::fs::{create_dir, create_dir_all, remove_dir_all, write};
+
+    struct MavenCodebase {
+        test_folder: String,
+        code_folder: String,
+        res_folder: String,
+        //group_id.artifact_id
+        root_package_path: String,
+    }
+
+    impl MavenCodebase {
+        pub fn new(pom_xml: PomXml) -> Self {
+            todo!();
+            //populate the initial fields
+        }
+
+        fn init_mvn_project() {
+            //create folders and main function
+            //verify it compiles
+            //give helper fns to user so he can create classes in the respective folders
+        }
+    }
+    pub fn create_maven_project_folders(pom: PomXml, root_folder: &str) -> bool {
+        let main_default = root_folder.to_string() + "/src/main";
+        let project_path = pom.group_id.to_owned() + "." + &pom.artifact_id;
+        let package_path = project_path.replace(".", "/");
+        //the order those folders are being created matters,
+        //create_dir_all fails if any of the parents exist
+        let code_folder = main_default.to_owned() + &"/java/" + &package_path;
+        if let Err(e) = create_dir_all(&code_folder) {
+            assert!(false, "Failed to create main/java folder, err {}", e);
+        }
+
+        let test_folder = root_folder.to_string() + &"/src/test/java/" + &package_path;
+        if let Err(e) = create_dir_all(test_folder) {
+            assert!(false, "Failed to create test folder, err {}", e);
+        }
+
+        let resources_folder = main_default.to_owned() + &"/resources";
+        if let Err(e) = create_dir(resources_folder) {
+            assert!(false, "Failed to create resources folder,err {}", e);
+        }
+
+        let entrypoint = create_spring_main_class(pom);
+        let mainfile = write(
+            code_folder + "/" + &entrypoint.class_name + ".java",
+            entrypoint.generate_code(),
+        );
+        if let Err(e) = mainfile {
+            assert!(false, "Main file could not be written err {}", e);
+        }
+
+        true
+    }
+    //https://nick.groenen.me/notes/capitalize-a-string-in-rust/
+    pub fn capitalize(s: &str) -> String {
+        let mut c = s.chars();
+        match c.next() {
+            None => String::new(),
+            Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+        }
+    }
+    pub fn create_spring_main_class(pom: PomXml) -> JavaClass {
+        let class_name = capitalize(&pom.project_name);
+        let package = pom.group_id.to_owned() + "." + &pom.artifact_id;
+        let jclass = JavaClass::new(class_name.clone(), package)
+            .import(imports::Import::new(
+                "org.springframework.boot".to_owned(),
+                "SpringApplication".to_owned(),
+            ))
+            .annotation(annotations::Annotation::new("SpringApplication".into()))
+            .public()
+            .method(
+                methods::Method::new(types::TypeName::new("void".into()), "main".to_owned())
+                    .static_()
+                    .public()
+                    .param(VariableParam::new(
+                        types::TypeName::new("String[]".into()),
+                        "args".into(),
+                    ))
+                    .code(format!("SpringApplication.run({},args);", class_name)),
+            );
+        jclass
+    }
+
+    fn cleanup_folder(dir: &str) {
+        if let Err(e) = remove_dir_all(dir) {
+            assert!(false, "Removing all files from folder failed");
+        }
+    }
 
     pub struct PomXml {
         description: String,
         project_name: String,
         java: String,
+        //add assertion that one dot is contained
         group_id: String,
         artifact_id: String,
         dependencies: Vec<Library>,

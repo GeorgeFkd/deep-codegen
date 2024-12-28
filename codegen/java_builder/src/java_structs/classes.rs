@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use crate::java_structs::Codegen;
+
 pub struct JavaClass {
     // modifiers could just be separate methods
     pub imports: Option<Vec<super::imports::Import>>,
@@ -31,7 +33,9 @@ impl super::Codegen for JavaClass {
         if self.class_modifiers.is_empty() {
             println!("No class modifiers you might want to make your class public");
         }
-
+        if let Some(anns) = &self.class_annotations {
+            result.push_str(&anns.generate_code());
+        }
         result.push_str(self.class_modifiers.generate_code().as_str());
 
         result.push_str(&format!("class {}", self.class_name));

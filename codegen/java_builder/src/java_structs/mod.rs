@@ -25,6 +25,16 @@ pub struct VariableParam {
     pub type_: types::TypeName,
     pub annotation: Vec<annotations::Annotation>,
 }
+
+impl VariableParam {
+    pub fn new(type_: types::TypeName, name: String) -> Self {
+        Self {
+            name,
+            type_,
+            annotation: vec![],
+        }
+    }
+}
 impl Codegen for Vec<VariableParam> {
     fn generate_code(&self) -> String {
         let mut result = "".to_owned();

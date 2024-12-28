@@ -1,9 +1,20 @@
 use std::hash::{Hash, Hasher};
+
+use super::Codegen;
 #[derive(Clone)]
 pub struct Annotation {
     pub qualified_name: String,
     //name = value
     pub params_list: Option<Vec<(String, String)>>,
+}
+
+impl Annotation {
+    pub fn new(qualified_name: String) -> Self {
+        Self {
+            params_list: None,
+            qualified_name,
+        }
+    }
 }
 impl super::Codegen for Annotation {
     fn generate_code(&self) -> String {
@@ -22,6 +33,16 @@ impl super::Codegen for Annotation {
     }
 }
 
+impl super::Codegen for Vec<Annotation> {
+    fn generate_code(&self) -> String {
+        let mut result = "".to_owned();
+        for ann in self {
+            result.push('\n');
+            result.push_str(&ann.generate_code());
+        }
+        result
+    }
+}
 impl PartialEq<Self> for Annotation {
     fn eq(&self, other: &Self) -> bool {
         self.qualified_name.eq(&other.qualified_name)
