@@ -1,4 +1,8 @@
-use super::Codegen;
+use super::{
+    annotations::Annotation,
+    modifiers::{self, AccessModifiers},
+    Codegen,
+};
 impl PartialEq for Field {
     fn eq(&self, other: &Self) -> bool {
         self.name.eq(&other.name)
@@ -16,6 +20,37 @@ pub struct Field {
     pub type_: super::types::TypeName,
     //this type can be stricter
     pub initializer: Option<String>,
+}
+//TODO make the default modifier be Private
+impl Field {
+    pub fn new(
+        name: String,
+        type_: super::types::TypeName,
+        modifier: super::modifiers::AccessModifiers,
+    ) -> Self {
+        Self {
+            name,
+            type_,
+            modifiers: vec![modifier],
+            annotation: vec![],
+            initializer: None,
+        }
+    }
+
+    pub fn n(name: String, type_: super::types::TypeName) -> Self {
+        Self {
+            name,
+            type_,
+            modifiers: vec![AccessModifiers::Private],
+            initializer: None,
+            annotation: vec![],
+        }
+    }
+
+    pub fn annotation(mut self, a: Annotation) -> Self {
+        self.annotation.push(a);
+        self
+    }
 }
 
 impl super::Codegen for Field {

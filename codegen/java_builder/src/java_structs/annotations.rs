@@ -9,11 +9,30 @@ pub struct Annotation {
 }
 
 impl Annotation {
+    pub fn autowired() -> Self {
+        Self {
+            qualified_name: "Autowired".into(),
+            params_list: None,
+        }
+    }
+
     pub fn new(qualified_name: String) -> Self {
         Self {
             params_list: None,
             qualified_name,
         }
+    }
+
+    pub fn param(mut self, name: String, value: String) -> Self {
+        //this is probably not correctly written there is a better way likely
+        match self.params_list {
+            None => self.params_list = Some(vec![(name, value)]),
+            Some(mut params) => {
+                params.push((name, value));
+                self.params_list = Some(params)
+            }
+        }
+        self
     }
 }
 impl super::Codegen for Annotation {

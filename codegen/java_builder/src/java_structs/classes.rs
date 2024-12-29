@@ -2,8 +2,10 @@ use std::collections::HashSet;
 
 use crate::java_structs::Codegen;
 
+#[derive(Clone)]
 pub struct JavaClass {
     // modifiers could just be separate methods
+    //TODO add constructors
     pub imports: Option<Vec<super::imports::Import>>,
     pub implements: Option<Vec<super::types::Implements>>,
     pub class_annotations: Option<Vec<super::annotations::Annotation>>,
@@ -113,7 +115,7 @@ impl JavaClass {
             .push(super::modifiers::AccessModifiers::Protected);
         self
     }
-
+    //TODO let package be empty so it can then be filled in the codegen process
     pub fn new(class_name: String, package: String) -> JavaClass {
         assert!(!package.is_empty(),"You forgot to include the package declaration, on the Builder object you can use the .package() method.");
         assert!(
@@ -132,6 +134,11 @@ impl JavaClass {
             methods: vec![],
             generic_params: super::types::GenericParams::new(vec![]),
         }
+    }
+
+    pub fn package(mut self, pkg: String) -> Self {
+        self.package = pkg;
+        self
     }
 
     pub fn class_modifiers(mut self, modifiers: Vec<super::modifiers::AccessModifiers>) -> Self {
@@ -174,6 +181,19 @@ impl JavaClass {
             }
             None => {
                 self.class_annotations = Some(vec![a]);
+                self
+            }
+        }
+    }
+
+    pub fn annotations(mut self, a: Vec<super::annotations::Annotation>) -> Self {
+        match self.class_annotations {
+            Some(ref mut annotations) => {
+                annotations.extend(a);
+                self
+            }
+            None => {
+                self.class_annotations = Some(a);
                 self
             }
         }

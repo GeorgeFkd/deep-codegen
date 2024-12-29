@@ -5,7 +5,12 @@ pub mod java_structs;
 #[cfg(test)]
 pub mod java_project_tests {
 
-    use crate::java_project::maven_builder::{create_maven_project_folders, Generate, PomXml};
+    use crate::java_project::maven_builder::{Generate, MavenCodebase, PomXml};
+    use crate::java_structs::{
+        annotations::Annotation, classes::JavaClass, fields::Field, methods::Method,
+        types::TypeName,
+    };
+    use crate::java_structs_tests::AccessModifiers;
     use std::env;
     use std::process::{Command, Stdio};
     fn maven_is_installed() -> bool {
@@ -21,20 +26,26 @@ pub mod java_project_tests {
         }
     }
     use std::path;
-    fn mvn_project_compiles() -> bool {
+    fn mvn_project_compiles(proj_dir: &str) -> bool {
         assert!(
             maven_is_installed(),
             "mvn command is not present, install the maven package from your package manager"
         );
         let cwd = env::current_dir().expect("for some reason couldnt get the current dir");
         println!("The current dir is {:?}", cwd);
-        let pom_path = cwd.join("pom.xml");
+        let pom_path = cwd.join(proj_dir).join("pom.xml");
+        println!("The path is: {:?}", pom_path);
         assert!(
             pom_path.exists(),
             "pom.xml maven file is not present in the current working directory"
         );
-        let mvn = Command::new("mvn").arg("clean").arg("compile");
-        false
+        let mut mvn = Command::new("mvn");
+        mvn.arg("-f").arg(pom_path).arg("clean").arg("compile");
+        if let Ok(res) = mvn.status() {
+            return res.success();
+        } else {
+            false
+        }
     }
 
     fn xml_lint_is_installed() -> bool {
@@ -73,9 +84,8 @@ pub mod java_project_tests {
         );
     }
 
-    use std::path::Path;
     #[test]
-    fn can_create_maven_folders() {
+    fn can_generate_crud_classes() {
         let top_folder = "generated";
         let mut pom_xml = PomXml::new();
         let descr = "This is a project to showcase the methodology of runtime verification in the context of event based systems".to_owned();
@@ -88,8 +98,42 @@ pub mod java_project_tests {
         pom_xml = pom_xml.java_version(java_version.clone());
         pom_xml = pom_xml.group_id(group_id.clone());
         pom_xml = pom_xml.artifact(artifact_id.clone());
+        pom_xml = pom_xml.spring_boot();
 
-        create_maven_project_folders(pom_xml, top_folder);
+        let customer_class = JavaClass::new(
+            "Customer".to_owned(),
+            pom_xml.get_root_package() + "Customer",
+        )
+        .public()
+        .field(Field::n("firstName".into(), TypeName::new("String".into())))
+        .field(Field::n("lastName".into(), TypeName::new("String".into())))
+        .field(Field::n("email".into(), TypeName::new("String".into())))
+        .field(Field::n("age".into(), TypeName::new("int".into())));
+
+        let mut mvn_code = MavenCodebase::new(pom_xml, top_folder);
+        mvn_code = mvn_code.add_entity(customer_class);
+        mvn_code.generate_code();
+
+        mvn_project_compiles(top_folder);
+    }
+
+    use std::path::Path;
+    #[test]
+    fn can_create_maven_folders() {
+        let top_folder = "generated2";
+        let mut pom_xml = PomXml::new();
+        let descr = "This is a project to showcase the methodology of runtime verification in the context of event based systems".to_owned();
+        let project = "TempContRvTool".to_owned();
+        let java_version = "17".to_owned();
+        let group_id = "org.javacodegen".to_owned();
+        let artifact_id = "rvtool".to_owned();
+        pom_xml = pom_xml.description(descr.clone());
+        pom_xml = pom_xml.project_name(project.clone());
+        pom_xml = pom_xml.java_version(java_version.clone());
+        pom_xml = pom_xml.group_id(group_id.clone());
+        pom_xml = pom_xml.artifact(artifact_id.clone());
+        pom_xml = pom_xml.spring_boot();
+        let mvn_codebase = MavenCodebase::new(pom_xml, &top_folder);
         let code_folder = &(top_folder.to_owned() + &"/src/main/java/org/javacodegen/rvtool");
         assert_dir_exists(code_folder);
 
@@ -106,7 +150,8 @@ pub mod java_project_tests {
             "Main file {} was not created correctly",
             mainfile
         );
-        cleanup_folder(top_folder);
+        mvn_project_compiles(top_folder);
+        // cleanup_folder(top_folder);
     }
     use std::fs;
     fn cleanup_folder(dir: &str) {

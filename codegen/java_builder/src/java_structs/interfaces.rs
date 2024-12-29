@@ -1,4 +1,3 @@
-
 #[derive(Clone)]
 pub struct Interface {
     pub annotations: Vec<super::annotations::Annotation>,
@@ -75,11 +74,16 @@ impl super::Codegen for Interface {
 }
 
 impl Interface {
+    pub fn package(mut self, pkg: String) -> Self {
+        self.package = pkg;
+        self
+    }
+
     pub fn new(package_name: String, interface_name: String) -> Self {
-        assert!(
-            package_name.contains("."),
-            "Interface::new(package,name) is the correct usage, reverse the order of the params"
-        );
+        // assert!(
+        //     package_name.contains("."),
+        //     "Interface::new(package,name) is the correct usage, reverse the order of the params"
+        // );
         Self {
             name: interface_name,
             package: package_name,
@@ -133,6 +137,11 @@ impl Interface {
 
     pub fn methods(mut self, methods: Vec<super::methods::Method>) -> Self {
         self.methods.extend(methods);
+        self
+    }
+
+    pub fn method(mut self, m: super::methods::Method) -> Self {
+        self.methods.push(m);
         self
     }
 

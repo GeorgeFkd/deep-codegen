@@ -9,7 +9,8 @@ pub struct Import {
 
 impl Import {
     pub fn new(package_name: String, class_name: String) -> Self {
-        assert!(package_name.contains("."),"Package name does not have dots, the params in the ::new method are the other way around");
+        // Lombok does not have a dot in the name
+        //assert!(package_name.contains("."),"Package name does not have dots, the params in the ::new method are the other way around");
         Self {
             class_name,
             package_name,
