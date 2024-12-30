@@ -1,11 +1,13 @@
+use super::{imports::Import, modifiers::AccessModifiers, Codegen};
+
 pub struct JavaEnum {
     enum_types: Vec<(String, String)>,
     enum_name: String,
-    modifiers: Vec<super::modifiers::AccessModifiers>,
+    modifiers: Vec<AccessModifiers>,
     package: String,
-    imports: Vec<super::imports::Import>,
+    imports: Vec<Import>,
 }
-impl super::Codegen for JavaEnum {
+impl Codegen for JavaEnum {
     fn generate_code(&self) -> String {
         let mut result = "".to_string();
         result.push_str(&format!("package {};\n", &self.package));
@@ -46,46 +48,40 @@ impl JavaEnum {
     }
 
     pub fn public(mut self) -> Self {
-        self.modifiers
-            .push(super::modifiers::AccessModifiers::Public);
+        self.modifiers.push(AccessModifiers::Public);
         self
     }
     pub fn protected(mut self) -> Self {
-        self.modifiers
-            .push(super::modifiers::AccessModifiers::Protected);
+        self.modifiers.push(AccessModifiers::Protected);
         self
     }
 
     pub fn private(mut self) -> Self {
-        self.modifiers
-            .push(super::modifiers::AccessModifiers::Private);
+        self.modifiers.push(AccessModifiers::Private);
         self
     }
 
     pub fn static_(mut self) -> Self {
-        self.modifiers
-            .push(super::modifiers::AccessModifiers::Static);
+        self.modifiers.push(AccessModifiers::Static);
         self
     }
 
     pub fn final_(mut self) -> Self {
-        self.modifiers
-            .push(super::modifiers::AccessModifiers::Final);
+        self.modifiers.push(AccessModifiers::Final);
         self
     }
 
     pub fn abstract_(mut self) -> Self {
-        self.modifiers
-            .push(super::modifiers::AccessModifiers::Abstract);
+        self.modifiers.push(AccessModifiers::Abstract);
         self
     }
 
-    pub fn modifiers(mut self, modifiers: Vec<super::modifiers::AccessModifiers>) -> Self {
+    pub fn modifiers(mut self, modifiers: Vec<AccessModifiers>) -> Self {
         self.modifiers.extend(modifiers);
         self
     }
 
-    pub fn imports(mut self, imports: Vec<super::imports::Import>) -> Self {
+    pub fn imports(mut self, imports: Vec<Import>) -> Self {
         self.imports.extend(imports);
         self
     }

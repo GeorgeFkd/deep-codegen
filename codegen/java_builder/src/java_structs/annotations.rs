@@ -8,6 +8,18 @@ pub struct Annotation {
     pub params_list: Option<Vec<(String, String)>>,
 }
 
+impl Into<Annotation> for String {
+    fn into(self) -> Annotation {
+        Annotation::new(self)
+    }
+}
+
+impl Into<Annotation> for &str {
+    fn into(self) -> Annotation {
+        Annotation::new(self.to_owned())
+    }
+}
+
 impl Annotation {
     pub fn autowired() -> Self {
         Self {
@@ -46,7 +58,7 @@ impl Annotation {
         self
     }
 }
-impl super::Codegen for Annotation {
+impl Codegen for Annotation {
     fn generate_code(&self) -> String {
         let mut result = "".to_string();
 
@@ -64,7 +76,7 @@ impl super::Codegen for Annotation {
     }
 }
 
-impl super::Codegen for Vec<Annotation> {
+impl Codegen for Vec<Annotation> {
     fn generate_code(&self) -> String {
         let mut result = "".to_owned();
         for ann in self {

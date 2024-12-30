@@ -41,13 +41,26 @@ impl Codegen for GenericParams {
     }
 }
 
+use classes::JavaClass;
+use interfaces::Interface;
+
 use super::*;
 #[derive(Debug, Clone)]
 pub struct TypeName {
     pub name: String,
     pub generic_params: Option<GenericParams>,
 }
+impl Into<TypeName> for JavaClass {
+    fn into(self) -> TypeName {
+        todo!()
+    }
+}
 
+impl Into<TypeName> for Interface {
+    fn into(self) -> TypeName {
+        todo!()
+    }
+}
 impl Into<TypeName> for &str {
     fn into(self) -> TypeName {
         TypeName::new(self.to_owned())

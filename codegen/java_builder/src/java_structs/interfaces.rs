@@ -1,20 +1,30 @@
+use super::{
+    annotations::Annotation,
+    classes::JavaClass,
+    imports::Import,
+    methods::Method,
+    modifiers::AccessModifiers,
+    types::{GenericParams, TypeName},
+    Codegen,
+};
+
 #[derive(Clone)]
 pub struct Interface {
-    pub annotations: Vec<super::annotations::Annotation>,
+    pub annotations: Vec<Annotation>,
     pub package: String,
-    pub imports: Vec<super::imports::Import>,
-    pub superclass: Option<super::types::TypeName>,
+    pub imports: Vec<Import>,
+    pub superclass: Option<TypeName>,
     pub name: String,
     //i need a way to
-    pub methods: Vec<super::methods::Method>,
+    pub methods: Vec<Method>,
     //abstract should not be used
     //should static be used? it does not make that much sense
-    pub modifier: super::modifiers::AccessModifiers,
+    pub modifier: AccessModifiers,
     //i dont like the GenericParams thing
     //it might be better to just do a Vec<Generic>
     //so it is easy to reference the same generic
     //in different places
-    pub generics: super::types::GenericParams,
+    pub generics: GenericParams,
 }
 //not using it but is the first macro i wrote with some help
 macro_rules! generate_builder_methods_for_enum {
@@ -29,7 +39,13 @@ macro_rules! generate_builder_methods_for_enum {
     }
     }
 }
-impl super::Codegen for Interface {
+
+impl Into<JavaClass> for Interface {
+    fn into(self) -> JavaClass {
+        todo!()
+    }
+}
+impl Codegen for Interface {
     fn generate_code(&self) -> String {
         assert!(
             &self.methods.iter().all(|m| m.code.is_empty()),
@@ -87,70 +103,70 @@ impl Interface {
         Self {
             name: interface_name,
             package: package_name,
-            generics: super::types::GenericParams::new(vec![]),
-            modifier: super::modifiers::AccessModifiers::Public,
+            generics: GenericParams::new(vec![]),
+            modifier: AccessModifiers::Public,
             methods: vec![],
             superclass: None,
             imports: vec![],
             annotations: vec![],
         }
     }
-    pub fn modifier(mut self, m: super::modifiers::AccessModifiers) -> Self {
+    pub fn modifier(mut self, m: AccessModifiers) -> Self {
         self.modifier = m;
         self
     }
 
     pub fn public(mut self) -> Self {
-        self.modifier = super::modifiers::AccessModifiers::Public;
+        self.modifier = AccessModifiers::Public;
         self
     }
 
     pub fn private(mut self) -> Self {
-        self.modifier = super::modifiers::AccessModifiers::Private;
+        self.modifier = AccessModifiers::Private;
         self
     }
 
     pub fn protected(mut self) -> Self {
-        self.modifier = super::modifiers::AccessModifiers::Protected;
+        self.modifier = AccessModifiers::Protected;
         self
     }
 
     pub fn abstract_(mut self) -> Self {
-        self.modifier = super::modifiers::AccessModifiers::Abstract;
+        self.modifier = AccessModifiers::Abstract;
         self
     }
 
     pub fn static_(mut self) -> Self {
-        self.modifier = super::modifiers::AccessModifiers::Static;
+        self.modifier = AccessModifiers::Static;
         self
     }
 
     pub fn final_(mut self) -> Self {
-        self.modifier = super::modifiers::AccessModifiers::Final;
+        self.modifier = AccessModifiers::Final;
         self
     }
 
-    pub fn extends(mut self, sup: super::types::TypeName) -> Self {
+    pub fn extends(mut self, sup: TypeName) -> Self {
         self.superclass = Some(sup);
         self
     }
 
-    pub fn methods(mut self, methods: Vec<super::methods::Method>) -> Self {
+    pub fn methods(mut self, methods: Vec<Method>) -> Self {
         self.methods.extend(methods);
         self
     }
 
-    pub fn method(mut self, m: super::methods::Method) -> Self {
+    pub fn method(mut self, m: Method) -> Self {
         self.methods.push(m);
         self
     }
 
-    pub fn import(mut self, i: super::imports::Import) -> Self {
+    pub fn import(mut self, i: Import) -> Self {
         self.imports.push(i);
         self
     }
 
-    pub fn annotation(mut self, a: super::annotations::Annotation) -> Self {
+    pub fn annotation(mut self, a: Annotation) -> Self {
         self.annotations.push(a);
         self
     }

@@ -1,5 +1,7 @@
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use std::hash::Hash;
+
+use super::Codegen;
 #[derive(Copy, Clone, Debug, Default)]
 pub enum AccessModifiers {
     #[default]
@@ -16,7 +18,7 @@ pub enum AccessModifiers {
     //Volatile
     //strictfp
 }
-impl super::Codegen for Vec<AccessModifiers> {
+impl Codegen for Vec<AccessModifiers> {
     fn generate_code(&self) -> String {
         let mut result = "".to_string();
         let mut modifiers = self.clone();

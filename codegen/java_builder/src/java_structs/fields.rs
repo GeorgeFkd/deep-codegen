@@ -1,11 +1,25 @@
 use super::{
     annotations::Annotation,
+    classes::JavaClass,
+    interfaces::Interface,
     modifiers::{self, AccessModifiers},
     Codegen,
 };
 impl PartialEq for Field {
     fn eq(&self, other: &Self) -> bool {
         self.name.eq(&other.name)
+    }
+}
+
+impl Into<Field> for JavaClass {
+    fn into(self) -> Field {
+        todo!()
+    }
+}
+
+impl Into<Field> for Interface {
+    fn into(self) -> Field {
+        todo!()
     }
 }
 

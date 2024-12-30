@@ -1,20 +1,56 @@
+use super::annotations::Annotation;
+use super::modifiers::AccessModifiers;
+use super::types::{GenericParams, TypeName};
+use super::Codegen;
+
 #[derive(Clone)]
 pub struct Method {
-    pub annotations: Vec<super::annotations::Annotation>,
-    pub modifiers: Vec<super::modifiers::AccessModifiers>,
-    pub generics: super::types::GenericParams,
+    pub annotations: Vec<Annotation>,
+    pub modifiers: Vec<AccessModifiers>,
+    pub generics: GenericParams,
     pub parameters: Vec<super::VariableParam>,
-    pub return_type: super::types::TypeName,
+    pub return_type: TypeName,
     pub code: String,
     pub name: String,
     //add throws clause
 }
-impl super::Codegen for Method {
+
+#[derive(Clone)]
+pub struct VariableParam {
+    pub name: String,
+    pub type_: TypeName,
+    pub annotation: Vec<Annotation>,
+}
+
+impl VariableParam {
+    pub fn new(type_: TypeName, name: String) -> Self {
+        Self {
+            name,
+            type_,
+            annotation: vec![],
+        }
+    }
+}
+impl Codegen for Vec<VariableParam> {
     fn generate_code(&self) -> String {
-        if self
-            .modifiers
-            .contains(&super::modifiers::AccessModifiers::Abstract)
-        {
+        let mut result = "".to_owned();
+        result.push('(');
+        for (pos, param) in self.iter().enumerate() {
+            for ann in param.annotation.iter() {
+                result.push_str(ann.generate_code().as_str());
+            }
+            result.push_str(&format!("{} {}", param.type_.generate_code(), param.name));
+            if pos != self.len() - 1 {
+                result.push(',');
+            }
+        }
+        result.push(')');
+        result
+    }
+}
+impl Codegen for Method {
+    fn generate_code(&self) -> String {
+        if self.modifiers.contains(&AccessModifiers::Abstract) {
             assert!(
                 &self.code.is_empty(),
                 "Abstract methods should not have a body"
@@ -31,10 +67,7 @@ impl super::Codegen for Method {
         result.push_str(&format!("{}", self.name));
         result.push_str(&self.parameters.generate_code());
 
-        if self
-            .modifiers
-            .contains(&super::modifiers::AccessModifiers::Abstract)
-        {
+        if self.modifiers.contains(&AccessModifiers::Abstract) {
             result.push(';');
             result.push('\n');
             return result;
@@ -54,12 +87,12 @@ impl super::Codegen for Method {
     }
 }
 impl Method {
-    pub fn new(return_type: super::types::TypeName, name: String) -> Self {
+    pub fn new(return_type: TypeName, name: String) -> Self {
         Self {
             return_type,
             name,
             annotations: vec![],
-            generics: super::types::GenericParams::new(vec![]),
+            generics: GenericParams::new(vec![]),
             parameters: vec![],
             modifiers: vec![],
             code: "".to_owned(),
@@ -67,42 +100,36 @@ impl Method {
     }
 
     pub fn public(mut self) -> Self {
-        self.modifiers
-            .push(super::modifiers::AccessModifiers::Public);
+        self.modifiers.push(AccessModifiers::Public);
         self
     }
 
     pub fn private(mut self) -> Self {
-        self.modifiers
-            .push(super::modifiers::AccessModifiers::Private);
+        self.modifiers.push(AccessModifiers::Private);
         self
     }
 
     pub fn protected(mut self) -> Self {
-        self.modifiers
-            .push(super::modifiers::AccessModifiers::Protected);
+        self.modifiers.push(AccessModifiers::Protected);
         self
     }
 
     pub fn abstract_(mut self) -> Self {
-        self.modifiers
-            .push(super::modifiers::AccessModifiers::Abstract);
+        self.modifiers.push(AccessModifiers::Abstract);
         self
     }
 
     pub fn static_(mut self) -> Self {
-        self.modifiers
-            .push(super::modifiers::AccessModifiers::Static);
+        self.modifiers.push(AccessModifiers::Static);
         self
     }
 
     pub fn final_(mut self) -> Self {
-        self.modifiers
-            .push(super::modifiers::AccessModifiers::Final);
+        self.modifiers.push(AccessModifiers::Final);
         self
     }
 
-    pub fn modifier(mut self, m: super::modifiers::AccessModifiers) -> Self {
+    pub fn modifier(mut self, m: AccessModifiers) -> Self {
         self.modifiers.push(m);
         self
     }
@@ -112,7 +139,7 @@ impl Method {
         self
     }
 
-    pub fn annotation(mut self, a: super::annotations::Annotation) -> Self {
+    pub fn annotation(mut self, a: Annotation) -> Self {
         self.annotations.push(a);
         self
     }

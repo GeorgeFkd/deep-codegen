@@ -1,23 +1,31 @@
 use std::collections::HashSet;
 
-use crate::java_structs::Codegen;
+use super::{
+    annotations::Annotation,
+    fields::Field,
+    imports::Import,
+    methods::Method,
+    modifiers::AccessModifiers,
+    types::{GenericParams, Implements, TypeName},
+    Codegen,
+};
 
 #[derive(Clone)]
 pub struct JavaClass {
     // modifiers could just be separate methods
     //TODO add constructors
-    pub imports: Vec<super::imports::Import>,
-    pub implements: Vec<super::types::Implements>,
-    pub class_annotations: Vec<super::annotations::Annotation>,
-    pub fields: HashSet<super::fields::Field>,
-    pub methods: Vec<super::methods::Method>,
+    pub imports: Vec<Import>,
+    pub implements: Vec<Implements>,
+    pub class_annotations: Vec<Annotation>,
+    pub fields: HashSet<Field>,
+    pub methods: Vec<Method>,
     pub class_name: String,
-    pub generic_params: super::types::GenericParams,
-    pub class_modifiers: Vec<super::modifiers::AccessModifiers>,
-    pub superclass: Option<super::types::TypeName>,
+    pub generic_params: GenericParams,
+    pub class_modifiers: Vec<AccessModifiers>,
+    pub superclass: Option<TypeName>,
     pub package: String,
 }
-impl super::Codegen for JavaClass {
+impl Codegen for JavaClass {
     fn generate_code(&self) -> String {
         //i could refactor to more immutability in this method
         let mut result: String = "".to_string();
@@ -65,7 +73,7 @@ impl super::Codegen for JavaClass {
     }
 }
 impl JavaClass {
-    pub fn method(mut self, m: super::methods::Method) -> Self {
+    pub fn method(mut self, m: Method) -> Self {
         self.methods.push(m);
         self
     }
@@ -77,37 +85,31 @@ impl JavaClass {
     }
 
     pub fn public(mut self) -> Self {
-        self.class_modifiers
-            .push(super::modifiers::AccessModifiers::Public);
+        self.class_modifiers.push(AccessModifiers::Public);
         self
     }
 
     pub fn private(mut self) -> Self {
-        self.class_modifiers
-            .push(super::modifiers::AccessModifiers::Private);
+        self.class_modifiers.push(AccessModifiers::Private);
         self
     }
 
     pub fn static_(mut self) -> Self {
-        self.class_modifiers
-            .push(super::modifiers::AccessModifiers::Static);
+        self.class_modifiers.push(AccessModifiers::Static);
         self
     }
 
     pub fn abstract_(mut self) -> Self {
-        self.class_modifiers
-            .push(super::modifiers::AccessModifiers::Abstract);
+        self.class_modifiers.push(AccessModifiers::Abstract);
         self
     }
 
     pub fn final_(mut self) -> Self {
-        self.class_modifiers
-            .push(super::modifiers::AccessModifiers::Final);
+        self.class_modifiers.push(AccessModifiers::Final);
         self
     }
     pub fn protected(mut self) -> Self {
-        self.class_modifiers
-            .push(super::modifiers::AccessModifiers::Protected);
+        self.class_modifiers.push(AccessModifiers::Protected);
         self
     }
     pub fn new(class_name: String, package: String) -> JavaClass {
@@ -126,7 +128,7 @@ impl JavaClass {
             fields: HashSet::new(),
             package,
             methods: vec![],
-            generic_params: super::types::GenericParams::new(vec![]),
+            generic_params: GenericParams::new(vec![]),
         }
     }
 
@@ -135,7 +137,7 @@ impl JavaClass {
         self
     }
 
-    pub fn class_modifiers(mut self, modifiers: Vec<super::modifiers::AccessModifiers>) -> Self {
+    pub fn class_modifiers(mut self, modifiers: Vec<AccessModifiers>) -> Self {
         self.class_modifiers.append(&mut modifiers.to_owned());
         self
     }
@@ -145,36 +147,36 @@ impl JavaClass {
         self
     }
 
-    pub fn extends(mut self, extends: super::types::TypeName) -> Self {
+    pub fn extends(mut self, extends: TypeName) -> Self {
         self.superclass = Some(extends);
         self
     }
 
-    pub fn import(mut self, imp: super::imports::Import) -> Self {
+    pub fn import(mut self, imp: Import) -> Self {
         self.imports.push(imp);
         self
     }
 
-    pub fn imports(mut self, imps: Vec<super::imports::Import>) -> Self {
+    pub fn imports(mut self, imps: Vec<Import>) -> Self {
         self.imports.extend(imps);
         self
     }
 
-    pub fn field(mut self, f: super::fields::Field) -> Self {
+    pub fn field(mut self, f: Field) -> Self {
         self.fields.insert(f);
         self
     }
 
-    pub fn annotation(mut self, a: super::annotations::Annotation) -> Self {
+    pub fn annotation(mut self, a: Annotation) -> Self {
         self.class_annotations.push(a);
         self
     }
 
-    pub fn annotations(mut self, a: Vec<super::annotations::Annotation>) -> Self {
+    pub fn annotations(mut self, a: Vec<Annotation>) -> Self {
         self.class_annotations.extend(a);
         self
     }
-    pub fn implements(mut self, interface: super::types::Implements) -> Self {
+    pub fn implements(mut self, interface: Implements) -> Self {
         self.implements.push(interface);
         self
     }

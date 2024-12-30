@@ -27,6 +27,11 @@ pub mod maven_builder {
         pom_xml::{Generate, PomXml},
     };
 
+    struct Progress {
+        pub has_written_initial_files: bool,
+        pub has_created_initial_folders: bool,
+    }
+
     pub struct MavenCodebase {
         test_folder: String,
         code_folder: String,
@@ -44,16 +49,64 @@ pub mod maven_builder {
         services: Vec<JavaClass>,
         repos_folder: String,
         jpa_repos: Vec<Interface>,
-        has_written_initial_files: bool,
+        progress: Progress,
     }
 
     impl MavenCodebase {
-        pub fn write_initial_files(&mut self) {
-            //todo write application.properties based on the pom.xml file
-            if !self.has_written_initial_files {
-                self.has_written_initial_files = true;
+        fn create_initial_folders(&mut self) {
+            if !self.progress.has_created_initial_folders {
+                self.progress.has_created_initial_folders = true;
             } else {
                 return;
+            }
+            let main_default = self.root_folder.clone() + "/src/main";
+            let project_path = format!("{}.{}", &self.pom_xml.group_id, &self.pom_xml.artifact_id);
+            let package_path = project_path.replace(".", "/");
+            //the order those folders are being created matters,
+            //create_dir_all fails if any of the parents exist
+
+            let code_folder = main_default.to_owned() + &"/java/" + &package_path;
+            if let Err(e) = create_dir_all(&code_folder) {
+                assert!(false, "Failed to create main/java folder, err {}", e);
+            }
+
+            match create_dir(code_folder.clone() + "/" + &self.repos_folder) {
+                Ok(r) => println!("Created repositories folder successfully"),
+                Err(e) => println!("Failed to create /repositories folder {}", e),
+            }
+            match create_dir(code_folder.clone() + "/" + &self.models_folder) {
+                Ok(r) => println!("Created models folder successfully"),
+                Err(e) => println!("Failed to create /models folder {}", e),
+            }
+            match create_dir(code_folder.clone() + "/" + &self.services_folder) {
+                Ok(r) => println!("Created services folder successfully"),
+                Err(e) => println!("Failed to create /services folder {}", e),
+            }
+
+            if let Err(e) = create_dir(code_folder.clone() + "/" + &self.dtos_folder) {
+                assert!(false, "Failed to create DTO folder, err {}", e);
+            }
+
+            if let Err(e) = create_dir(code_folder + "/" + &self.controllers_folder) {
+                assert!(false, "Failed to create controllers folder, err {}", e);
+            }
+
+            if let Err(e) = create_dir_all(&self.test_folder) {
+                assert!(false, "Failed to create test folder, err {}", e);
+            }
+            if let Err(e) = create_dir(&self.res_folder) {
+                assert!(false, "Failed to create resources folder,err {}", e);
+            }
+        }
+        pub fn write_initial_files(&mut self) {
+            //todo write application.properties based on the pom.xml file
+            if self.progress.has_written_initial_files {
+                println!("Have already written initial_files, skipping");
+                return;
+            }
+
+            if !self.progress.has_created_initial_folders {
+                self.create_initial_folders();
             }
 
             let entrypoint = create_spring_main_class(&self.pom_xml);
@@ -72,9 +125,10 @@ pub mod maven_builder {
             ) {
                 assert!(false, "pom.xml file could not be written err {}", e);
             }
+
+            self.progress.has_written_initial_files = true;
         }
         pub fn new(pom_xml: PomXml, output_dir: &str) -> Self {
-            let output_dir = output_dir.to_string();
             let main_default = output_dir.to_string() + "/src/main";
             let project_path = format!("{}.{}", &pom_xml.group_id, &pom_xml.artifact_id);
             let package_path = project_path.replace(".", "/");
@@ -82,37 +136,12 @@ pub mod maven_builder {
             //create_dir_all fails if any of the parents exist
 
             let code_folder = main_default.to_owned() + &"/java/" + &package_path;
-            if let Err(e) = create_dir_all(code_folder.clone()) {
-                assert!(false, "Failed to create main/java folder, err {}", e);
-            }
-
-            match create_dir(code_folder.clone() + "/repositories") {
-                Ok(r) => println!("Created repositories folder successfully"),
-                Err(e) => println!("Failed to create /repositories folder {}", e),
-            }
-            match create_dir(code_folder.clone() + "/models") {
-                Ok(r) => println!("Created models folder successfully"),
-                Err(e) => println!("Failed to create /models folder {}", e),
-            }
-            match create_dir(code_folder.clone() + "/services") {
-                Ok(r) => println!("Created services folder successfully"),
-                Err(e) => println!("Failed to create /services folder {}", e),
-            }
             let test_folder = output_dir.to_string() + &"/src/test/java/" + &package_path;
-            if let Err(e) = create_dir_all(test_folder.clone()) {
-                assert!(false, "Failed to create test folder, err {}", e);
-            }
             let res_folder = main_default.to_owned() + &"/resources";
-            if let Err(e) = create_dir(res_folder.clone()) {
-                assert!(false, "Failed to create resources folder,err {}", e);
-            }
-            let dto_folder = code_folder.to_owned() + &"/dto";
-            if let Err(e) = create_dir(dto_folder.clone()) {
-                assert!(false, "Failed to create DTO folder, err {}", e);
-            }
+
             Self {
                 pom_xml,
-                root_folder: output_dir,
+                root_folder: output_dir.to_string(),
                 code_folder,
                 test_folder,
                 res_folder,
@@ -126,7 +155,10 @@ pub mod maven_builder {
                 entities: vec![],
                 dto_classes: vec![],
                 controller_classes: vec![],
-                has_written_initial_files: false,
+                progress: Progress {
+                    has_written_initial_files: false,
+                    has_created_initial_folders: false,
+                },
             }
         }
 
@@ -202,9 +234,10 @@ pub mod maven_builder {
         }
 
         pub fn generate_code(mut self) -> Self {
+            self.create_initial_folders();
             self.write_initial_files();
             println!("Generating code");
-
+            //TODO gotta fix all those .clone() calls
             let entities = self.entities.clone();
             let models_folder = self.models_folder.clone();
             self.generate_classes_in(entities, &models_folder);
