@@ -4,18 +4,28 @@
 // - libraries
 // - general options that have sensible defaults (model folder,docs folder, services folder etc. etc.)
 // - extras: CRUDs + Search
+mod spring_packages;
 pub mod maven_builder {
+    use crate::java_project::spring_packages;
+    use crate::java_structs::*;
     use annotations::Annotation;
     use classes::JavaClass;
     use fields::Field;
     use imports::Import;
     use interfaces::Interface;
+    use std::{
+        fs::{self, create_dir, create_dir_all, remove_dir_all, write},
+        path::Path,
+    };
     use types::TypeName;
 
-    use crate::java_structs::*;
-    use std::fs::{self, create_dir, create_dir_all, remove_dir_all, write};
-
-    use super::crud_builder::{jpa_repository_of, service_from_class, spring_boot_entity};
+    use super::{
+        crud_builder::{
+            controller_from_class, dto_from_class, jpa_repository_of, service_from_class,
+            spring_boot_entity,
+        },
+        pom_xml::{Generate, PomXml},
+    };
 
     pub struct MavenCodebase {
         test_folder: String,
@@ -27,6 +37,10 @@ pub mod maven_builder {
         models_folder: String,
         entities: Vec<JavaClass>,
         services_folder: String,
+        controllers_folder: String,
+        controller_classes: Vec<JavaClass>,
+        dtos_folder: String,
+        dto_classes: Vec<JavaClass>,
         services: Vec<JavaClass>,
         repos_folder: String,
         jpa_repos: Vec<Interface>,
@@ -92,19 +106,26 @@ pub mod maven_builder {
             if let Err(e) = create_dir(res_folder.clone()) {
                 assert!(false, "Failed to create resources folder,err {}", e);
             }
-
+            let dto_folder = code_folder.to_owned() + &"/dto";
+            if let Err(e) = create_dir(dto_folder.clone()) {
+                assert!(false, "Failed to create DTO folder, err {}", e);
+            }
             Self {
                 pom_xml,
                 root_folder: output_dir,
                 code_folder,
                 test_folder,
                 res_folder,
+                controllers_folder: "controllers".into(),
+                dtos_folder: "dto".into(),
                 repos_folder: "repositories".into(),
                 services_folder: "services".into(),
                 models_folder: "models".into(),
                 services: vec![],
                 jpa_repos: vec![],
                 entities: vec![],
+                dto_classes: vec![],
+                controller_classes: vec![],
                 has_written_initial_files: false,
             }
         }
@@ -113,20 +134,29 @@ pub mod maven_builder {
         pub fn add_entity(mut self, jclass: JavaClass) -> Self {
             //i will be re-using this
             let model_import = format!("{}.models", self.pom_xml.get_root_package());
+            let model_import = Import::new(model_import, jclass.clone().class_name);
             let entity = spring_boot_entity(jclass.clone());
-            let jpa_repo = jpa_repository_of(
-                jclass.clone(),
-                Import::new(model_import, jclass.clone().class_name),
-            );
-            let repo_import = format!("{}.repositories", self.pom_xml.get_root_package(),);
+            let jpa_repo = jpa_repository_of(jclass.clone(), model_import.clone());
+            let repo_import = format!("{}.repositories", self.pom_xml.get_root_package());
 
             let service = service_from_class(
                 jclass.clone(),
                 Import::new(repo_import, jpa_repo.name.clone()),
             );
+
+            let service_import = format!("{}.repositories", self.pom_xml.get_root_package());
+            let dto = dto_from_class(jclass.clone(), model_import.clone());
+            let dto_import = format!("{}.dto", self.pom_xml.get_root_package());
+            let controller = controller_from_class(
+                jclass.clone(),
+                Import::new(service_import, service.class_name.clone()),
+                Import::new(dto_import, dto.class_name.clone()),
+            );
             self.entities.push(entity);
             self.services.push(service);
             self.jpa_repos.push(jpa_repo);
+            self.dto_classes.push(dto);
+            self.controller_classes.push(controller);
             self
         }
 
@@ -137,96 +167,60 @@ pub mod maven_builder {
             self
         }
 
-        pub fn generate_code(&mut self) {
+        pub fn generate_classes_in(&self, classes: Vec<JavaClass>, sub_folder: &str) {
+            let in_package = format!("{}.{}", self.pom_xml.get_root_package(), sub_folder);
+            classes
+                .into_iter()
+                .map(|cls| cls.package(in_package.clone()))
+                .for_each(|cls| {
+                    let path = self.code_folder.to_owned()
+                        + "/"
+                        + sub_folder
+                        + "/"
+                        + &cls.class_name
+                        + ".java";
+                    match fs::write(path, cls.generate_code()) {
+                        Ok(r) => println!("Entities were successfully generated"),
+                        Err(e) => println!("An error occurred when generating entities {}", e),
+                    }
+                });
+        }
+
+        pub fn generate_interfaces_in(&self, interfaces: Vec<Interface>, sub_folder: &str) {
+            let in_package = format!("{}.{}", self.pom_xml.get_root_package(), sub_folder);
+            interfaces
+                .into_iter()
+                .map(|cls| cls.package(in_package.clone()))
+                .for_each(|cls| {
+                    let path =
+                        self.code_folder.to_owned() + "/" + sub_folder + "/" + &cls.name + ".java";
+                    match fs::write(path, cls.generate_code()) {
+                        Ok(r) => println!("Entities were successfully generated"),
+                        Err(e) => println!("An error occurred when generating entities {}", e),
+                    }
+                });
+        }
+
+        pub fn generate_code(mut self) -> Self {
             self.write_initial_files();
             println!("Generating code");
-            let entities_package = format!(
-                "{}.{}",
-                self.pom_xml.get_root_package(),
-                &self.models_folder
-            );
-            for mut e in self.entities.clone().into_iter() {
-                e = e.package(entities_package.clone());
-                match fs::write(
-                    self.code_folder.to_owned()
-                        + "/"
-                        + &self.models_folder
-                        + "/"
-                        + &e.class_name
-                        + ".java",
-                    e.generate_code(),
-                ) {
-                    Ok(r) => println!("Entities were successfully generated"),
-                    Err(e) => println!("An error occurred when generating entities {}", e),
-                }
-            }
-            let repos_package =
-                format!("{}.{}", self.pom_xml.get_root_package(), &self.repos_folder);
 
-            for mut repo in self.jpa_repos.clone().into_iter() {
-                repo = repo.package(repos_package.clone());
-                match fs::write(
-                    self.code_folder.to_owned()
-                        + "/"
-                        + &self.repos_folder
-                        + "/"
-                        + &repo.name
-                        + ".java",
-                    repo.generate_code(),
-                ) {
-                    Ok(r) => println!("Successfully generated jpa repositories"),
-                    Err(e) => println!("An error occurred when generating jpa repos {}", e),
-                }
-            }
-            let services_package = format!(
-                "{}.{}",
-                self.pom_xml.get_root_package(),
-                &self.services_folder
-            );
-            for mut s in self.services.clone().into_iter() {
-                s = s.package(services_package.clone());
-                match fs::write(
-                    self.code_folder.to_owned()
-                        + "/"
-                        + &self.services_folder
-                        + "/"
-                        + &s.class_name
-                        + ".java",
-                    s.generate_code(),
-                ) {
-                    Ok(r) => println!("Services classes were successfully generated "),
-                    Err(e) => println!("An error occurred when generating services {}", e),
-                }
-            }
-        }
-        pub fn init_mvn_project(&self) {
-            //
-            // if let Err(e) = create_dir_all(&self.code_folder) {
-            //     assert!(false, "Failed to create main/java folder, err {}", e);
-            // }
-            //
-            // if let Err(e) = create_dir_all(&self.test_folder) {
-            //     assert!(false, "Failed to create test folder, err {}", e);
-            // }
-            // if let Err(e) = create_dir(&self.res_folder) {
-            //     assert!(false, "Failed to create resources folder,err {}", e);
-            // }
-            // let entrypoint = create_spring_main_class(&self.pom_xml);
-            // let mainfile = write(
-            //     (&self.code_folder).to_owned() + "/" + &entrypoint.class_name + ".java",
-            //     entrypoint.generate_code(),
-            // );
-            //
-            // if let Err(e) = mainfile {
-            //     assert!(false, "Main file could not be written err {}", e);
-            // }
-            //
-            // if let Err(e) = write(
-            //     (&self.root_folder).to_owned() + "/" + "pom.xml",
-            //     &self.pom_xml.generate(),
-            // ) {
-            //     assert!(false, "pom.xml file could not be written err {}", e);
-            // }
+            let entities = self.entities.clone();
+            let models_folder = self.models_folder.clone();
+            self.generate_classes_in(entities, &models_folder);
+
+            let repos = self.jpa_repos.clone();
+            let repos_folder = self.repos_folder.clone();
+            self.generate_interfaces_in(repos, &repos_folder);
+
+            let services = self.services.clone();
+            let services_folder = self.services_folder.clone();
+            self.generate_classes_in(services, &services_folder);
+
+            let dtos = self.dto_classes.clone();
+            let dtos_folder = self.dtos_folder.clone();
+            self.generate_classes_in(dtos, &dtos_folder);
+            self
         }
     }
 
@@ -239,7 +233,7 @@ pub mod maven_builder {
         }
     }
     //todo i have some trouble getting it to compile with maven
-    pub fn create_spring_main_class(pom: &PomXml) -> JavaClass {
+    pub fn create_spring_main_class(pom: &super::pom_xml::PomXml) -> JavaClass {
         let class_name = capitalize(&pom.project_name);
         let package = pom.group_id.to_owned() + "." + &pom.artifact_id;
         let jclass = JavaClass::new(class_name.clone(), package)
@@ -271,18 +265,20 @@ pub mod maven_builder {
             assert!(false, "Removing all files from folder failed");
         }
     }
-
+}
+pub mod pom_xml {
+    use super::spring_packages::*;
     pub struct PomXml {
-        description: String,
-        project_name: String,
-        java: String,
+        pub description: String,
+        pub project_name: String,
+        pub java: String,
         //add assertion that one dot is contained
-        group_id: String,
-        artifact_id: String,
-        dependencies: Vec<Library>,
+        pub group_id: String,
+        pub artifact_id: String,
+        pub dependencies: Vec<Library>,
         //It has the same attributes thats why
         //+ a relative path ofc
-        parent_pom: Library,
+        pub parent_pom: Library,
     }
 
     struct Library {
@@ -290,7 +286,6 @@ pub mod maven_builder {
         artifact_id: String,
         version: Option<String>,
     }
-    //TODO
     struct ProjectInfo {
         group_id: String,
         artifact_id: String,
@@ -392,196 +387,6 @@ pub mod maven_builder {
             self
         }
 
-        pub fn spring_boot_starter_actuator(mut self) -> Self {
-            self = self.add_library(
-                "org.springframework.boot".into(),
-                "spring-boot-starter-actuator".into(),
-            );
-            self
-        }
-
-        pub fn spring_boot_starter_batch(mut self) -> Self {
-            self = self.add_library(
-                "org.springframework.boot".into(),
-                "spring-boot-starter-batch".into(),
-            );
-            self
-        }
-
-        pub fn spring_boot_starter_data_jdbc(mut self) -> Self {
-            self = self.add_library(
-                "org.springframework.boot".into(),
-                "spring-boot-starter-data-jdbc".into(),
-            );
-            self
-        }
-
-        pub fn spring_boot_starter_data_jpa(mut self) -> Self {
-            self = self.add_library(
-                "org.springframework.boot".into(),
-                "spring-boot-starter-data-jpa".into(),
-            );
-            self
-        }
-
-        pub fn spring_boot_starter_data_ldap(mut self) -> Self {
-            self = self.add_library(
-                "org.springframework.boot".into(),
-                "spring-boot-starter-data-ldap".into(),
-            );
-            self
-        }
-
-        pub fn spring_boot_starter_data_rest(mut self) -> Self {
-            self = self.add_library(
-                "org.springframework.boot".into(),
-                "spring-boot-starter-data-rest".into(),
-            );
-            self
-        }
-
-        pub fn spring_boot_starter_mail(mut self) -> Self {
-            self = self.add_library(
-                "org.springframework.boot".into(),
-                "spring-boot-starter-mail".into(),
-            );
-            self
-        }
-
-        pub fn spring_boot_starter_oauth2_authorization_server(mut self) -> Self {
-            self = self.add_library(
-                "org.springframework.boot".into(),
-                "spring-boot-starter-oauth2-authorization-server".into(),
-            );
-            self
-        }
-
-        pub fn spring_boot_starter_oauth2_client(mut self) -> Self {
-            self = self.add_library(
-                "org.springframework.boot".into(),
-                "spring-boot-starter-oauth2-client".into(),
-            );
-            self
-        }
-
-        pub fn spring_boot_starter_thymeleaf(mut self) -> Self {
-            self = self.add_library(
-                "org.springframework.boot".into(),
-                "spring-boot-starter-thymeleaf".into(),
-            );
-            self
-        }
-
-        pub fn spring_boot_starter_web(mut self) -> Self {
-            self = self.add_library(
-                "org.springframework.boot".into(),
-                "spring-boot-starter-web".into(),
-            );
-            self
-        }
-
-        pub fn spring_kafka(mut self) -> Self {
-            self = self.add_library("org.springframework.kafka".into(), "spring-kafka".into());
-            self
-        }
-
-        pub fn thymeleaf_extras_springsecurity6(mut self) -> Self {
-            self = self.add_library(
-                "org.thymeleaf.extras".into(),
-                "thymeleaf-extras-springsecurity6".into(),
-            );
-            self
-        }
-
-        pub fn spring_boot_devtools(mut self) -> Self {
-            self = self.add_library(
-                "org.springframework.boot".into(),
-                "spring-boot-devtools".into(),
-            );
-            self
-        }
-
-        pub fn spring_boot_docker_compose(mut self) -> Self {
-            self = self.add_library(
-                "org.springframework.boot".into(),
-                "spring-boot-docker-compose".into(),
-            );
-            self
-        }
-
-        pub fn postgresql(mut self) -> Self {
-            self = self.add_library("org.postgresql".into(), "postgresql".into());
-            self
-        }
-
-        pub fn lombok(mut self) -> Self {
-            self = self.add_library("org.projectlombok".into(), "lombok".into());
-            self
-        }
-
-        pub fn spring_boot_starter_test(mut self) -> Self {
-            self = self.add_library(
-                "org.springframework.boot".into(),
-                "spring-boot-starter-test".into(),
-            );
-            self
-        }
-
-        pub fn spring_boot_testcontainers(mut self) -> Self {
-            self = self.add_library(
-                "org.springframework.boot".into(),
-                "spring-boot-testcontainers".into(),
-            );
-            self
-        }
-
-        pub fn spring_batch_test(mut self) -> Self {
-            self = self.add_library(
-                "org.springframework.batch".into(),
-                "spring-batch-test".into(),
-            );
-            self
-        }
-
-        pub fn spring_kafka_test(mut self) -> Self {
-            self = self.add_library(
-                "org.springframework.kafka".into(),
-                "spring-kafka-test".into(),
-            );
-            self
-        }
-
-        pub fn spring_restdocs_mockmvc(mut self) -> Self {
-            self = self.add_library(
-                "org.springframework.restdocs".into(),
-                "spring-restdocs-mockmvc".into(),
-            );
-            self
-        }
-
-        pub fn spring_security_test(mut self) -> Self {
-            self = self.add_library(
-                "org.springframework.security".into(),
-                "spring-security-test".into(),
-            );
-            self
-        }
-
-        pub fn junit_jupiter(mut self) -> Self {
-            self = self.add_library("org.testcontainers".into(), "junit-jupiter".into());
-            self
-        }
-
-        pub fn kafka(mut self) -> Self {
-            self = self.add_library("org.testcontainers".into(), "kafka".into());
-            self
-        }
-
-        pub fn testcontainers_postgresql(mut self) -> Self {
-            self = self.add_library("org.testcontainers".into(), "postgresql".into());
-            self
-        }
-
         pub fn description(mut self, descr: String) -> Self {
             self.description = descr;
             self
@@ -656,7 +461,6 @@ pub mod maven_builder {
         }
     }
 }
-
 pub mod crud_builder {
     use crate::{
         annotations::Annotation,
@@ -749,8 +553,22 @@ pub mod crud_builder {
         entity
     }
 
-    pub fn dto_from_class(jclass: JavaClass) -> () {
-        todo!();
+    pub fn dto_from_class(jclass: JavaClass, class_import: Import) -> JavaClass {
+        let name = jclass.class_name.clone() + "DTO";
+        let initial_class_name = jclass.class_name.clone();
+        let mut dto = jclass.class_name(name.clone());
+        dto = dto.import(class_import);
+        //DTO Constructor
+        let dto_constructor =
+            Method::new(TypeName::new("".into()), name)
+                .public()
+                .param(VariableParam::new(
+                    TypeName::new(initial_class_name.clone()),
+                    initial_class_name.clone().to_lowercase(),
+                ));
+        dto = dto.method(dto_constructor);
+
+        dto
     }
 
     pub fn service_from_class(jclass: JavaClass, jpa_import: Import) -> JavaClass {
@@ -765,6 +583,7 @@ pub mod crud_builder {
         let sclass_name = service.class_name.clone();
         service = service.method(
             Method::new(TypeName::new("".into()), sclass_name)
+                .public()
                 .annotation(Annotation::autowired())
                 .param(VariableParam::new(
                     TypeName::new(repo_name),
@@ -784,6 +603,128 @@ pub mod crud_builder {
                 "Service".into(),
             ));
         service
+    }
+
+    pub fn controller_from_class(
+        jclass: JavaClass,
+        service_import: Import,
+        dto_import: Import,
+    ) -> JavaClass {
+        let id_path_variable = VariableParam::new("Long".into(), "id".into());
+        let initial_class_name = jclass.class_name.clone();
+        let mut controller = JavaClass::new(initial_class_name.clone() + "Controller", "".into());
+        let post_mapping = Annotation::new("PostMapping".into());
+        let get_mapping = Annotation::new("GetMapping".into());
+        let get_mapping_id =
+            Annotation::new("GetMapping".into()).param("value".into(), "/{id}".into());
+        let delete_mapping_id =
+            Annotation::new("DeleteMapping".into()).param("value".into(), "/{id}".into());
+        let update_mapping_id =
+            Annotation::new("PutMapping".into()).param("value".into(), "/{id}".into());
+        let post = Method::new(
+            TypeName::new_with_generics(
+                "ResponseEntity".into(),
+                GenericParams::new(vec![initial_class_name.clone() + "DTO"]),
+            ),
+            "create".to_owned() + &initial_class_name,
+        )
+        .annotation(post_mapping)
+        .code(format!(
+            r#"
+            return null;
+    "#,
+        ));
+        let get_by_id = Method::new(
+            TypeName::new_with_generics(
+                "ResponseEntity".into(),
+                GenericParams::new(vec![initial_class_name.clone() + "DTO"]),
+            ),
+            "get".to_owned() + &initial_class_name + "ById",
+        )
+        .annotation(get_mapping_id)
+        .param(id_path_variable.clone())
+        .code(format!(
+            r#"
+            return null;
+    "#,
+        ));
+
+        let get_all = Method::new(
+            TypeName::new_with_generics(
+                "ResponseEntity".into(),
+                GenericParams::new(vec![format!("List<{}DTO>", initial_class_name)]),
+            ),
+            "getAll".to_owned() + &initial_class_name + "s",
+        )
+        .annotation(get_mapping)
+        .code(format!(
+            r#"
+            return null;
+    "#,
+        ));
+
+        let update = Method::new(
+            TypeName::new_with_generics(
+                "ResponseEntity".into(),
+                GenericParams::new(vec![initial_class_name.clone() + "DTO"]),
+            ),
+            "update".to_owned() + &initial_class_name,
+        )
+        .annotation(update_mapping_id)
+        .param(id_path_variable.clone())
+        .code(format!(
+            r#"
+            return null;
+    "#,
+        ));
+
+        let delete = Method::new(
+            TypeName::new_with_generics(
+                "ResponseEntity".into(),
+                GenericParams::new(vec!["Void".to_string()]),
+            ),
+            "delete".to_owned() + &initial_class_name,
+        )
+        .annotation(delete_mapping_id)
+        .param(id_path_variable)
+        .code(format!(
+            r#"
+            return null;
+    "#,
+        ));
+
+        controller = controller
+            .method(post)
+            .method(update)
+            .method(delete)
+            .method(get_all)
+            .method(get_by_id);
+        let spring_imports = vec![
+            Import::new("org.springframework.http".into(), "HttpStatus".into()),
+            Import::new("org.springframework.http".into(), "ResponseEntity".into()),
+            Import::new("org.springframework.web.bind.annotation".into(), "*".into()),
+        ];
+        controller = controller.imports(spring_imports);
+
+        controller = controller.import(service_import).import(dto_import);
+        controller = controller
+            .annotation(Annotation::new("RestController".into()))
+            .annotation(Annotation::new("RequestMapping".into()).param(
+                "value".into(),
+                "/".to_owned() + &initial_class_name.to_lowercase(),
+            ));
+
+        let service_property = initial_class_name.to_lowercase() + "Service";
+        let service_type = TypeName::new(initial_class_name);
+        controller = controller.field(Field::n(service_property.clone(), service_type.clone()));
+        let constructor = Method::new("".into(), controller.class_name.clone())
+            .param(VariableParam::new(service_type, service_property))
+            .code("return null;".into());
+        controller = controller.method(constructor);
+
+        //constructor
+
+        controller
     }
 }
 

@@ -1,16 +1,16 @@
-pub type Implements = types::TypeName;
+pub type Implements = TypeName;
 #[derive(Debug, Clone)]
 pub struct GenericParams {
     pub generics: Vec<String>,
 }
-impl Eq for types::TypeName {}
+impl Eq for TypeName {}
 impl PartialEq<Self> for types::TypeName {
     fn eq(&self, other: &Self) -> bool {
         self.name.eq(&other.name)
     }
 }
 
-impl Hash for types::TypeName {
+impl Hash for TypeName {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.name.hash(state)
     }
@@ -48,6 +48,17 @@ pub struct TypeName {
     pub generic_params: Option<GenericParams>,
 }
 
+impl Into<TypeName> for &str {
+    fn into(self) -> TypeName {
+        TypeName::new(self.to_owned())
+    }
+}
+
+impl Into<TypeName> for String {
+    fn into(self) -> TypeName {
+        TypeName::new(self)
+    }
+}
 impl TypeName {
     pub fn new(name: String) -> Self {
         Self {

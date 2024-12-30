@@ -162,7 +162,6 @@ pub mod java_structs_tests {
         //private,public,protected > abstract > final > static
         //i could add an assert to ensure that private,public,protected are not in the same declaration
         //i could do the asserts in a more property-based testing manner
-        //but right now i wont
         assert!(!result.contains("final private"));
         assert!(!result.contains("static public"));
         assert!(result.contains(&format!("extends {}", superclass.name.as_str())));

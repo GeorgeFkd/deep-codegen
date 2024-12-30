@@ -4,7 +4,8 @@ mod java_project_tests {
     use java_builder::{
         classes::JavaClass,
         fields::Field,
-        maven_builder::{Generate, MavenCodebase, PomXml},
+        maven_builder::MavenCodebase,
+        pom_xml::{Generate, PomXml},
         types::TypeName,
     };
 
@@ -12,6 +13,19 @@ mod java_project_tests {
         assert_a_class_file_exists_in_that, assert_dir_exists, assert_xml_structure_with_xsd,
         cleanup_folder, mvn_project_compiles, xml_lint_is_installed,
     };
+
+    fn sample_class(pom_xml: &PomXml) -> JavaClass {
+        let customer_class = JavaClass::new(
+            "Customer".to_owned(),
+            pom_xml.get_root_package() + "Customer",
+        )
+        .public()
+        .field(Field::n("firstName".into(), TypeName::new("String".into())))
+        .field(Field::n("lastName".into(), TypeName::new("String".into())))
+        .field(Field::n("email".into(), TypeName::new("String".into())))
+        .field(Field::n("age".into(), TypeName::new("int".into())));
+        customer_class
+    }
 
     #[test]
     fn can_generate_crud_classes() {
@@ -29,21 +43,33 @@ mod java_project_tests {
         pom_xml = pom_xml.artifact(artifact_id.clone());
         pom_xml = pom_xml.spring_boot();
 
-        let customer_class = JavaClass::new(
-            "Customer".to_owned(),
-            pom_xml.get_root_package() + "Customer",
-        )
-        .public()
-        .field(Field::n("firstName".into(), TypeName::new("String".into())))
-        .field(Field::n("lastName".into(), TypeName::new("String".into())))
-        .field(Field::n("email".into(), TypeName::new("String".into())))
-        .field(Field::n("age".into(), TypeName::new("int".into())));
-
+        let example = sample_class(&pom_xml);
         let mut mvn_code = MavenCodebase::new(pom_xml, top_folder);
-        mvn_code = mvn_code.add_entity(customer_class);
+        mvn_code = mvn_code.add_entity(example.clone());
         mvn_code.generate_code();
         //there is a file that contains the name i provided
-        assert_a_class_file_exists_in_that(top_folder, |content| content.contains(&"Customer"));
+        assert_a_class_file_exists_in_that(top_folder, |content| {
+            content.contains(&example.class_name)
+        });
+
+        assert_a_class_file_exists_in_that(top_folder, |content| {
+            content.contains("extends JpaRepository")
+        });
+
+        assert_a_class_file_exists_in_that(top_folder, |content| content.contains("@Service"));
+        assert_a_class_file_exists_in_that(top_folder, |content| content.contains("@Entity"));
+        assert_a_class_file_exists_in_that(top_folder, |content| {
+            content.to_lowercase().contains("dto") && content.contains(&example.class_name)
+        });
+
+        // assert_a_class_file_exists_in_that(top_folder, |content| {
+        //     content.contains("@RestController")
+        //         && content.contains("@RequestMapping")
+        //         && content.contains("@PostMapping")
+        //         && content.contains("@GetMapping")
+        //         && content.contains("@PutMapping")
+        //         && content.contains("@DeleteMapping")
+        // });
         mvn_project_compiles(top_folder);
         // cleanup_folder(top_folder);
     }
