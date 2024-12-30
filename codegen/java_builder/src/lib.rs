@@ -2,87 +2,18 @@
 
 pub mod java_project;
 pub mod java_structs;
+
 #[cfg(test)]
 pub mod java_project_tests {
 
     use crate::java_project::maven_builder::{Generate, MavenCodebase, PomXml};
     use crate::java_structs::{
-        annotations::Annotation, classes::JavaClass, fields::Field, methods::Method,
-        types::TypeName,
+        classes::JavaClass, fields::Field, methods::Method, types::TypeName,
     };
-    use crate::java_structs_tests::AccessModifiers;
-    use std::env;
-    use std::process::{Command, Stdio};
-    fn maven_is_installed() -> bool {
-        let mvn = Command::new("mvn")
-            .arg("--version")
-            .stdout(Stdio::null())
-            .status();
-        if let Ok(command_result) = mvn {
-            return command_result.success();
-        } else {
-            println!("Something went wrong when executing xmllint");
-            return false;
-        }
-    }
-    use std::path;
-    fn mvn_project_compiles(proj_dir: &str) -> bool {
-        assert!(
-            maven_is_installed(),
-            "mvn command is not present, install the maven package from your package manager"
-        );
-        let cwd = env::current_dir().expect("for some reason couldnt get the current dir");
-        println!("The current dir is {:?}", cwd);
-        let pom_path = cwd.join(proj_dir).join("pom.xml");
-        println!("The path is: {:?}", pom_path);
-        assert!(
-            pom_path.exists(),
-            "pom.xml maven file is not present in the current working directory"
-        );
-        let mut mvn = Command::new("mvn");
-        mvn.arg("-f").arg(pom_path).arg("clean").arg("compile");
-        if let Ok(res) = mvn.status() {
-            return res.success();
-        } else {
-            false
-        }
-    }
-
-    fn xml_lint_is_installed() -> bool {
-        //just running the command returns a help message and exit code == 1
-        let xmllint = Command::new("xmllint")
-            .arg("--version")
-            .stdout(Stdio::null())
-            .status();
-        if let Ok(command_result) = xmllint {
-            return command_result.success();
-        } else {
-            println!("Something went wrong when executing xmllint");
-            return false;
-        }
-    }
-
-    use std::fs::{write, File};
-    fn assert_xml_structure_with_xsd(res: &str) {
-        assert!(xml_lint_is_installed(), "Xmllint command is not present");
-        let _ = write("tmp.xml", res).expect("writing to temp file failed");
-        let xmllint = Command::new("xmllint")
-            .arg("--noout")
-            .arg("--schema")
-            .arg("./maven-4.0.0.xsd")
-            .arg("./tmp.xml")
-            .status()
-            .expect("Something went wrong when executing the xmllint command");
-        assert!(xmllint.success(), "Xml linting failed");
-    }
-
-    fn assert_dir_exists(dir: &str) {
-        assert!(
-            Path::new(dir).is_dir(),
-            "{} folder was not created properly",
-            dir
-        );
-    }
+    use crate::test_helpers::{
+        assert_a_class_file_exists_in_that, assert_dir_exists, assert_xml_structure_with_xsd,
+        cleanup_folder, mvn_project_compiles, xml_lint_is_installed,
+    };
 
     #[test]
     fn can_generate_crud_classes() {
@@ -113,8 +44,10 @@ pub mod java_project_tests {
         let mut mvn_code = MavenCodebase::new(pom_xml, top_folder);
         mvn_code = mvn_code.add_entity(customer_class);
         mvn_code.generate_code();
-
+        //there is a file that contains the name i provided
+        assert_a_class_file_exists_in_that(top_folder, |content| content.contains(&"Customer"));
         mvn_project_compiles(top_folder);
+        // cleanup_folder(top_folder);
     }
 
     use std::path::Path;
@@ -133,7 +66,8 @@ pub mod java_project_tests {
         pom_xml = pom_xml.group_id(group_id.clone());
         pom_xml = pom_xml.artifact(artifact_id.clone());
         pom_xml = pom_xml.spring_boot();
-        let mvn_codebase = MavenCodebase::new(pom_xml, &top_folder);
+        let mut mvn_codebase = MavenCodebase::new(pom_xml, &top_folder);
+        mvn_codebase.write_initial_files();
         let code_folder = &(top_folder.to_owned() + &"/src/main/java/org/javacodegen/rvtool");
         assert_dir_exists(code_folder);
 
@@ -151,13 +85,7 @@ pub mod java_project_tests {
             mainfile
         );
         mvn_project_compiles(top_folder);
-        // cleanup_folder(top_folder);
-    }
-    use std::fs;
-    fn cleanup_folder(dir: &str) {
-        if let Err(e) = fs::remove_dir_all(dir) {
-            assert!(false, "Removing all files from folder failed");
-        }
+        //cleanup_folder(top_folder);
     }
 
     fn create_pom_xml() -> PomXml {
@@ -615,5 +543,124 @@ pub mod java_structs_tests {
 
     fn implement_interface(interface: &Interface) -> JavaClass {
         todo!("Automatic Interface implementation is under construction");
+    }
+}
+pub mod test_helpers {
+    use std::{
+        env, fs,
+        path::{Path, PathBuf},
+        process::{Command, Stdio},
+    };
+
+    pub fn maven_is_installed() -> bool {
+        let mvn = Command::new("mvn")
+            .arg("--version")
+            .stdout(Stdio::null())
+            .status();
+        if let Ok(command_result) = mvn {
+            return command_result.success();
+        } else {
+            println!("Something went wrong when executing xmllint");
+            return false;
+        }
+    }
+    pub fn mvn_project_compiles(proj_dir: &str) -> bool {
+        assert!(
+            maven_is_installed(),
+            "mvn command is not present, install the maven package from your package manager"
+        );
+        let cwd = env::current_dir().expect("for some reason couldnt get the current dir");
+        println!("The current dir is {:?}", cwd);
+        let pom_path = cwd.join(proj_dir).join("pom.xml");
+        println!("The path is: {:?}", pom_path);
+        assert!(
+            pom_path.exists(),
+            "pom.xml maven file is not present in the current working directory"
+        );
+        let mut mvn = Command::new("mvn");
+        mvn.arg("-f").arg(pom_path).arg("clean").arg("compile");
+        if let Ok(res) = mvn.status() {
+            return res.success();
+        } else {
+            false
+        }
+    }
+    pub fn xml_lint_is_installed() -> bool {
+        //just running the command returns a help message and exit code == 1
+        let xmllint = Command::new("xmllint")
+            .arg("--version")
+            .stdout(Stdio::null())
+            .status();
+        if let Ok(command_result) = xmllint {
+            return command_result.success();
+        } else {
+            println!("Something went wrong when executing xmllint");
+            return false;
+        }
+    }
+    pub fn assert_xml_structure_with_xsd(res: &str) {
+        assert!(xml_lint_is_installed(), "Xmllint command is not present");
+        let _ = fs::write("tmp.xml", res).expect("writing to temp file failed");
+        let xmllint = Command::new("xmllint")
+            .arg("--noout")
+            .arg("--schema")
+            .arg("./maven-4.0.0.xsd")
+            .arg("./tmp.xml")
+            .status()
+            .expect("Something went wrong when executing the xmllint command");
+        assert!(xmllint.success(), "Xml linting failed");
+    }
+    pub fn assert_dir_exists(dir: &str) {
+        assert!(
+            Path::new(dir).is_dir(),
+            "{} folder was not created properly",
+            dir
+        );
+    }
+    fn find_java_files_in_recursively(path: impl AsRef<Path>) -> Vec<PathBuf> {
+        let Ok(entries) = fs::read_dir(path) else {
+            return vec![];
+        };
+        entries
+            .flatten()
+            .flat_map(|entry| {
+                let Ok(meta) = entry.metadata() else {
+                    return vec![];
+                };
+                if meta.is_dir() {
+                    return find_java_files_in_recursively(entry.path());
+                }
+                if meta.is_file() && entry.path().extension().unwrap() == "java" {
+                    return vec![entry.path()];
+                }
+                vec![]
+            })
+            .collect()
+    }
+
+    pub fn assert_a_class_file_exists_in_that(path: impl AsRef<Path>, f: impl Fn(String) -> bool) {
+        let java_files = find_java_files_in_recursively(path.as_ref());
+        dbg!("Java Files in {}  {}", path.as_ref(), &java_files);
+        let pth_str = path.as_ref().display();
+        if java_files.is_empty() {
+            assert!(
+                false,
+                "No files were found in path {} to match against the predicate provided",
+                pth_str
+            );
+        } else {
+            assert!(
+                java_files
+                    .iter()
+                    .any(|file| f(fs::read_to_string(file).unwrap())),
+                "No java file found to match the predicate in path {}",
+                pth_str
+            );
+        }
+    }
+    pub fn cleanup_folder(dir: &str) {
+        if let Err(e) = fs::remove_dir_all(dir) {
+            assert!(false, "Removing all files from folder failed");
+        }
     }
 }

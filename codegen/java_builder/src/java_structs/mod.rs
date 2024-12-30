@@ -55,6 +55,9 @@ impl Codegen for Vec<VariableParam> {
 
 impl Codegen for Vec<types::Implements> {
     fn generate_code(&self) -> String {
+        if self.is_empty() {
+            return "".into();
+        }
         let mut result = "".to_string();
         result.push_str("implements ");
 

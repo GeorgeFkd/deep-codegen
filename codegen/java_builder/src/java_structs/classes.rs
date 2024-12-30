@@ -6,9 +6,9 @@ use crate::java_structs::Codegen;
 pub struct JavaClass {
     // modifiers could just be separate methods
     //TODO add constructors
-    pub imports: Option<Vec<super::imports::Import>>,
-    pub implements: Option<Vec<super::types::Implements>>,
-    pub class_annotations: Option<Vec<super::annotations::Annotation>>,
+    pub imports: Vec<super::imports::Import>,
+    pub implements: Vec<super::types::Implements>,
+    pub class_annotations: Vec<super::annotations::Annotation>,
     pub fields: HashSet<super::fields::Field>,
     pub methods: Vec<super::methods::Method>,
     pub class_name: String,
@@ -24,21 +24,18 @@ impl super::Codegen for JavaClass {
         result.push_str(&format!("package {};\n", self.package));
         result.push_str("\n");
 
-        if let Some(ref imports) = self.imports {
-            result.push_str(imports.generate_code().as_str());
-        } else {
+        if self.imports.is_empty() {
             println!("No imports found you might have forgotten them");
         }
+        result.push_str(self.imports.generate_code().as_str());
 
         result.push_str("\n");
 
         if self.class_modifiers.is_empty() {
             println!("No class modifiers you might want to make your class public");
         }
-        if let Some(anns) = &self.class_annotations {
-            result.push_str(&anns.generate_code());
-        }
-        result.push_str(self.class_modifiers.generate_code().as_str());
+        result.push_str(&self.class_annotations.generate_code());
+        result.push_str(&self.class_modifiers.generate_code());
 
         result.push_str(&format!("class {}", self.class_name));
         result.push_str(&self.generic_params.generate_code());
@@ -51,9 +48,7 @@ impl super::Codegen for JavaClass {
             result.push(' ');
         }
 
-        if let Some(ref implements) = self.implements {
-            result.push_str(implements.generate_code().as_str());
-        }
+        result.push_str(self.implements.generate_code().as_str());
 
         result.push('{');
         result.push('\n');
@@ -115,20 +110,19 @@ impl JavaClass {
             .push(super::modifiers::AccessModifiers::Protected);
         self
     }
-    //TODO let package be empty so it can then be filled in the codegen process
     pub fn new(class_name: String, package: String) -> JavaClass {
-        assert!(!package.is_empty(),"You forgot to include the package declaration, on the Builder object you can use the .package() method.");
+        //package can be empty as it might change for the codegen process
         assert!(
             !class_name.is_empty(),
             "You forgot to include the class name"
         );
         JavaClass {
-            imports: None,
+            imports: vec![],
             class_name,
             superclass: None,
-            class_annotations: None,
+            class_annotations: vec![],
             class_modifiers: vec![],
-            implements: None,
+            implements: vec![],
             fields: HashSet::new(),
             package,
             methods: vec![],
@@ -157,58 +151,32 @@ impl JavaClass {
     }
 
     pub fn import(mut self, imp: super::imports::Import) -> Self {
-        match self.imports {
-            Some(ref mut imports) => {
-                imports.push(imp);
-                self
-            }
-            None => {
-                self.imports = Some(vec![imp]);
-                self
-            }
-        }
+        self.imports.push(imp);
+        self
     }
+
+    pub fn imports(mut self, imps: Vec<super::imports::Import>) -> Self {
+        self.imports.extend(imps);
+        self
+    }
+
     pub fn field(mut self, f: super::fields::Field) -> Self {
         self.fields.insert(f);
         self
     }
 
     pub fn annotation(mut self, a: super::annotations::Annotation) -> Self {
-        match self.class_annotations {
-            Some(ref mut annotations) => {
-                annotations.push(a);
-                self
-            }
-            None => {
-                self.class_annotations = Some(vec![a]);
-                self
-            }
-        }
+        self.class_annotations.push(a);
+        self
     }
 
     pub fn annotations(mut self, a: Vec<super::annotations::Annotation>) -> Self {
-        match self.class_annotations {
-            Some(ref mut annotations) => {
-                annotations.extend(a);
-                self
-            }
-            None => {
-                self.class_annotations = Some(a);
-                self
-            }
-        }
+        self.class_annotations.extend(a);
+        self
     }
     pub fn implements(mut self, interface: super::types::Implements) -> Self {
-        match self.implements {
-            Some(ref mut implements) => {
-                implements.push(interface);
-                self
-            }
-            None => {
-                self.implements = Some(vec![interface]);
-                self
-            }
-        }
+        self.implements.push(interface);
+        self
     }
 
     pub fn build(self) -> Self {

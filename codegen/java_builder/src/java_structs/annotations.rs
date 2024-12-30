@@ -34,10 +34,23 @@ impl Annotation {
         }
         self
     }
+
+    pub fn params(mut self, name_val_pairs: Vec<(String, String)>) -> Self {
+        match self.params_list {
+            None => self.params_list = Some(name_val_pairs),
+            Some(mut params) => {
+                params.extend(name_val_pairs);
+                self.params_list = Some(params)
+            }
+        }
+        self
+    }
 }
 impl super::Codegen for Annotation {
     fn generate_code(&self) -> String {
         let mut result = "".to_string();
+
+        result.push('\n');
         result.push_str(&format!("@{} ", self.qualified_name));
         if let Some(ref params_list) = self.params_list {
             result.push('(');
@@ -47,7 +60,6 @@ impl super::Codegen for Annotation {
             }
             result.push(')');
         }
-        result.push('\n');
         result
     }
 }

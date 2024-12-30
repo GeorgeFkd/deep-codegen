@@ -1,14 +1,9 @@
-//here we will:
-//
 //check what build systems are available
 //implement a java project builder (for now only maven with spring boot codegen)
 //select:
 // - libraries
 // - general options that have sensible defaults (model folder,docs folder, services folder etc. etc.)
 // - extras: CRUDs + Search
-//
-//
-//
 pub mod maven_builder {
     use annotations::Annotation;
     use classes::JavaClass;
@@ -35,9 +30,35 @@ pub mod maven_builder {
         services: Vec<JavaClass>,
         repos_folder: String,
         jpa_repos: Vec<Interface>,
+        has_written_initial_files: bool,
     }
 
     impl MavenCodebase {
+        pub fn write_initial_files(&mut self) {
+            //todo write application.properties based on the pom.xml file
+            if !self.has_written_initial_files {
+                self.has_written_initial_files = true;
+            } else {
+                return;
+            }
+
+            let entrypoint = create_spring_main_class(&self.pom_xml);
+            let mainfile = write(
+                self.code_folder.clone().to_owned() + "/" + &entrypoint.class_name + ".java",
+                entrypoint.generate_code(),
+            );
+
+            if let Err(e) = mainfile {
+                assert!(false, "Main file could not be written err {}", e);
+            }
+
+            if let Err(e) = write(
+                (&self.root_folder).to_owned() + "/" + "pom.xml",
+                &self.pom_xml.generate(),
+            ) {
+                assert!(false, "pom.xml file could not be written err {}", e);
+            }
+        }
         pub fn new(pom_xml: PomXml, output_dir: &str) -> Self {
             let output_dir = output_dir.to_string();
             let main_default = output_dir.to_string() + "/src/main";
@@ -51,22 +72,6 @@ pub mod maven_builder {
                 assert!(false, "Failed to create main/java folder, err {}", e);
             }
 
-            let entrypoint = create_spring_main_class(&pom_xml);
-            let mainfile = write(
-                code_folder.clone().to_owned() + "/" + &entrypoint.class_name + ".java",
-                entrypoint.generate_code(),
-            );
-
-            if let Err(e) = mainfile {
-                assert!(false, "Main file could not be written err {}", e);
-            }
-
-            if let Err(e) = write(
-                (&output_dir).to_owned() + "/" + "pom.xml",
-                pom_xml.generate(),
-            ) {
-                assert!(false, "pom.xml file could not be written err {}", e);
-            }
             match create_dir(code_folder.clone() + "/repositories") {
                 Ok(r) => println!("Created repositories folder successfully"),
                 Err(e) => println!("Failed to create /repositories folder {}", e),
@@ -87,6 +92,7 @@ pub mod maven_builder {
             if let Err(e) = create_dir(res_folder.clone()) {
                 assert!(false, "Failed to create resources folder,err {}", e);
             }
+
             Self {
                 pom_xml,
                 root_folder: output_dir,
@@ -99,6 +105,7 @@ pub mod maven_builder {
                 services: vec![],
                 jpa_repos: vec![],
                 entities: vec![],
+                has_written_initial_files: false,
             }
         }
 
@@ -131,6 +138,7 @@ pub mod maven_builder {
         }
 
         pub fn generate_code(&mut self) {
+            self.write_initial_files();
             println!("Generating code");
             let entities_package = format!(
                 "{}.{}",
