@@ -659,10 +659,14 @@ pub mod maven_builder {
 
 pub mod crud_builder {
     use crate::{
+        annotations::Annotation,
+        classes::JavaClass,
+        fields::Field,
+        imports::Import,
+        interfaces::Interface,
         java_structs::VariableParam,
-        java_structs_tests::{
-            Annotation, Field, GenericParams, Import, Interface, JavaClass, Method, TypeName,
-        },
+        methods::Method,
+        types::{GenericParams, TypeName},
     };
 
     //TDD as usual easy af
