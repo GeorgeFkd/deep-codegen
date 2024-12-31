@@ -42,6 +42,7 @@ impl Codegen for GenericParams {
 }
 
 use classes::JavaClass;
+use enums::JavaEnum;
 use interfaces::Interface;
 
 use super::*;
@@ -50,15 +51,36 @@ pub struct TypeName {
     pub name: String,
     pub generic_params: Option<GenericParams>,
 }
+
+impl Into<VariableParam> for TypeName {
+    fn into(self) -> VariableParam {
+        let name = self.name.to_lowercase();
+        VariableParam::new(self, name)
+    }
+}
 impl Into<TypeName> for JavaClass {
     fn into(self) -> TypeName {
-        todo!()
+        if self.generic_params.generics.is_empty() {
+            return TypeName::new(self.class_name);
+        } else {
+            todo!("If a class has generics how can i convert its generics into a typename?");
+        }
     }
 }
 
 impl Into<TypeName> for Interface {
     fn into(self) -> TypeName {
-        todo!()
+        if self.generics.generics.is_empty() {
+            return TypeName::new(self.name);
+        } else {
+            todo!("If a class has generics how can i convert its generics into a typename?");
+        }
+    }
+}
+
+impl Into<TypeName> for JavaEnum {
+    fn into(self) -> TypeName {
+        return TypeName::new(self.enum_name);
     }
 }
 impl Into<TypeName> for &str {

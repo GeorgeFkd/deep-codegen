@@ -13,6 +13,7 @@ pub mod maven_builder {
     use fields::Field;
     use imports::Import;
     use interfaces::Interface;
+    use methods::Method;
     use std::{
         fs::{self, create_dir, create_dir_all, remove_dir_all, write},
         path::Path,
@@ -176,7 +177,7 @@ pub mod maven_builder {
                 Import::new(repo_import, jpa_repo.name.clone()),
             );
 
-            let service_import = format!("{}.repositories", self.pom_xml.get_root_package());
+            let service_import = format!("{}.services", self.pom_xml.get_root_package());
             let dto = dto_from_class(jclass.clone(), model_import.clone());
             let dto_import = format!("{}.dto", self.pom_xml.get_root_package());
             let controller = controller_from_class(
@@ -250,6 +251,10 @@ pub mod maven_builder {
             let services_folder = self.services_folder.clone();
             self.generate_classes_in(services, &services_folder);
 
+            let controllers = self.controller_classes.clone();
+            let controllers_folder = self.controllers_folder.clone();
+            self.generate_classes_in(controllers, &controllers_folder);
+
             let dtos = self.dto_classes.clone();
             let dtos_folder = self.dtos_folder.clone();
             self.generate_classes_in(dtos, &dtos_folder);
@@ -270,22 +275,22 @@ pub mod maven_builder {
         let class_name = capitalize(&pom.project_name);
         let package = pom.group_id.to_owned() + "." + &pom.artifact_id;
         let jclass = JavaClass::new(class_name.clone(), package)
-            .import(imports::Import::new(
+            .import(Import::new(
                 "org.springframework.boot".to_owned(),
                 "SpringApplication".to_owned(),
             ))
-            .import(imports::Import::new(
+            .import(Import::new(
                 "org.springframework.boot.autoconfigure".into(),
                 "SpringBootApplication".into(),
             ))
-            .annotation(annotations::Annotation::new("SpringBootApplication".into()))
+            .annotation(Annotation::new("SpringBootApplication".into()))
             .public()
             .method(
-                methods::Method::new(types::TypeName::new("void".into()), "main".to_owned())
+                Method::new(TypeName::new("void".into()), "main".to_owned())
                     .static_()
                     .public()
                     .param(VariableParam::new(
-                        types::TypeName::new("String[]".into()),
+                        TypeName::new("String[]".into()),
                         "args".into(),
                     ))
                     .code(format!("SpringApplication.run({}.class,args);", class_name)),
@@ -537,10 +542,7 @@ pub mod crud_builder {
             ),
             "findById".into(),
         )
-        .param(VariableParam::new(
-            TypeName::new("Long".into()),
-            "id".into(),
-        ));
+        .param(VariableParam::new("Long".into(), "id".into()));
         //todo add the import of the class above
         repo = repo
             .public()
@@ -560,12 +562,12 @@ pub mod crud_builder {
 
     pub fn spring_boot_entity(jclass: JavaClass) -> JavaClass {
         let id_field = id_field_for_entity();
-        let lombok_annots = vec![
-            Annotation::new("Data".into()),
-            Annotation::new("AllArgsConstructor".into()),
-            Annotation::new("NoArgsConstructor".into()),
+        let lombok_annots: Vec<Annotation> = vec![
+            "Data".into(),
+            "AllArgsConstructor".into(),
+            "NoArgsConstructor".into(),
         ];
-        let entity_annotation = Annotation::new("Entity".into());
+        let entity_annotation = "Entity".into();
         let entity = jclass
             .import(Import::new("jakarta.persistence".into(), "Entity".into()))
             .import(Import::new(
@@ -607,7 +609,7 @@ pub mod crud_builder {
     pub fn service_from_class(jclass: JavaClass, jpa_import: Import) -> JavaClass {
         let mut service = jclass.clone();
         service.class_name = jclass.class_name.clone() + "Service";
-        service = service.annotation(Annotation::new("Service".into()));
+        service = service.annotation("Service".into());
         let repo_name = (&jclass).class_name.to_owned() + "Repository";
         service = service.field(
             Field::n("repository".into(), TypeName::new(repo_name.clone()))
@@ -618,10 +620,7 @@ pub mod crud_builder {
             Method::new(TypeName::new("".into()), sclass_name)
                 .public()
                 .annotation(Annotation::autowired())
-                .param(VariableParam::new(
-                    TypeName::new(repo_name),
-                    "repository".into(),
-                )),
+                .param(VariableParam::new(repo_name.into(), "repository".into())),
         );
 
         service = service
@@ -646,14 +645,14 @@ pub mod crud_builder {
         let id_path_variable = VariableParam::new("Long".into(), "id".into());
         let initial_class_name = jclass.class_name.clone();
         let mut controller = JavaClass::new(initial_class_name.clone() + "Controller", "".into());
-        let post_mapping = Annotation::new("PostMapping".into());
-        let get_mapping = Annotation::new("GetMapping".into());
-        let get_mapping_id =
-            Annotation::new("GetMapping".into()).param("value".into(), "/{id}".into());
-        let delete_mapping_id =
-            Annotation::new("DeleteMapping".into()).param("value".into(), "/{id}".into());
-        let update_mapping_id =
-            Annotation::new("PutMapping".into()).param("value".into(), "/{id}".into());
+        let post_mapping = "PostMapping".into();
+        let get_mapping = "GetMapping".into();
+        let get_mapping_id = Annotation::new("GetMapping".into())
+            .param("value".into(), "\"".to_owned() + "/{id}" + "\"");
+        let delete_mapping_id = Annotation::new("DeleteMapping".into())
+            .param("value".into(), "\"".to_owned() + "/{id}" + "\"");
+        let update_mapping_id = Annotation::new("PutMapping".into())
+            .param("value".into(), "\"".to_owned() + "/{id}" + "\"");
         let post = Method::new(
             TypeName::new_with_generics(
                 "ResponseEntity".into(),
@@ -739,20 +738,24 @@ pub mod crud_builder {
         ];
         controller = controller.imports(spring_imports);
 
-        controller = controller.import(service_import).import(dto_import);
         controller = controller
-            .annotation(Annotation::new("RestController".into()))
-            .annotation(Annotation::new("RequestMapping".into()).param(
-                "value".into(),
-                "/".to_owned() + &initial_class_name.to_lowercase(),
-            ));
+            .import(service_import)
+            .import(dto_import)
+            .import(Import::new("java.util".into(), "List".into()));
 
-        let service_property = initial_class_name.to_lowercase() + "Service";
-        let service_type = TypeName::new(initial_class_name);
-        controller = controller.field(Field::n(service_property.clone(), service_type.clone()));
+        let route = format!("/{}", initial_class_name.to_lowercase());
+        controller = controller.annotation("RestController".into()).annotation(
+            Annotation::new("RequestMapping".into()).param(
+                "value".into(),
+                "\"".to_owned() + "/" + &initial_class_name.to_lowercase() + "\"",
+            ),
+        );
+
+        let service_type: TypeName = (initial_class_name + "Service").into();
+        controller = controller.field(service_type.clone().into());
         let constructor = Method::new("".into(), controller.class_name.clone())
-            .param(VariableParam::new(service_type, service_property))
-            .code("return null;".into());
+            .param(service_type.into())
+            .code("".into());
         controller = controller.method(constructor);
 
         //constructor

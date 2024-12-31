@@ -61,6 +61,7 @@ impl Codegen for Method {
 
         //reminder: it is valid code to not have modifiers
         //might make it panic to discourage weird code
+        result.push_str(&self.annotations.generate_code());
         result.push_str(&self.modifiers.generate_code());
 
         result.push_str(&format!("{} ", self.return_type.generate_code()));

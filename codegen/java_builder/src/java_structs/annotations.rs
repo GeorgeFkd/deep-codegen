@@ -66,9 +66,9 @@ impl Codegen for Annotation {
         result.push_str(&format!("@{} ", self.qualified_name));
         if let Some(ref params_list) = self.params_list {
             result.push('(');
-            result.push('\n');
+            //this is wrong
             for param in params_list {
-                result.push_str(&format!("{} = {}\n", param.0, param.1))
+                result.push_str(&format!("{} = {}", param.0, param.1))
             }
             result.push(')');
         }
@@ -83,6 +83,7 @@ impl Codegen for Vec<Annotation> {
             result.push('\n');
             result.push_str(&ann.generate_code());
         }
+        result.push('\n');
         result
     }
 }

@@ -62,14 +62,14 @@ mod java_project_tests {
             content.to_lowercase().contains("dto") && content.contains(&example.class_name)
         });
 
-        // assert_a_class_file_exists_in_that(top_folder, |content| {
-        //     content.contains("@RestController")
-        //         && content.contains("@RequestMapping")
-        //         && content.contains("@PostMapping")
-        //         && content.contains("@GetMapping")
-        //         && content.contains("@PutMapping")
-        //         && content.contains("@DeleteMapping")
-        // });
+        assert_a_class_file_exists_in_that(top_folder, |content| {
+            content.contains("@RestController")
+                && content.contains("@RequestMapping")
+                && content.contains("@PostMapping")
+                && content.contains("@GetMapping")
+                && content.contains("@PutMapping")
+                && content.contains("@DeleteMapping")
+        });
         mvn_project_compiles(top_folder);
         // cleanup_folder(top_folder);
     }

@@ -42,7 +42,14 @@ macro_rules! generate_builder_methods_for_enum {
 
 impl Into<JavaClass> for Interface {
     fn into(self) -> JavaClass {
-        todo!()
+        let mut c = JavaClass::new(self.name.clone() + "Impl", self.package.clone());
+        c = c.implements(self.clone().into());
+        for mut m in self.methods.into_iter() {
+            m.modifiers = vec![];
+            m = m.public();
+            c = c.method(m);
+        }
+        c
     }
 }
 impl Codegen for Interface {

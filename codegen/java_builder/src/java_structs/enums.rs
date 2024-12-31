@@ -2,7 +2,7 @@ use super::{imports::Import, modifiers::AccessModifiers, Codegen};
 
 pub struct JavaEnum {
     enum_types: Vec<(String, String)>,
-    enum_name: String,
+    pub enum_name: String,
     modifiers: Vec<AccessModifiers>,
     package: String,
     imports: Vec<Import>,

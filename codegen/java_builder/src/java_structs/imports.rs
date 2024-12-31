@@ -1,3 +1,5 @@
+use super::Codegen;
+
 #[derive(Clone)]
 pub struct Import {
     //import org.codegen.package.class_name
@@ -23,7 +25,7 @@ impl Import {
         self
     }
 }
-impl super::Codegen for Vec<Import> {
+impl Codegen for Vec<Import> {
     fn generate_code(&self) -> String {
         let mut result = "".to_string();
         result.push('\n');
@@ -34,7 +36,7 @@ impl super::Codegen for Vec<Import> {
     }
 }
 
-impl super::Codegen for Import {
+impl Codegen for Import {
     fn generate_code(&self) -> String {
         match &self.static_import {
             false => format!("import {}.{};\n", self.package_name, self.class_name),
