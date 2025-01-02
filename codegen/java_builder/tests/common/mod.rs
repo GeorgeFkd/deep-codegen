@@ -2,7 +2,7 @@ use std::{
     env, fs,
     io::{self, BufRead, BufReader},
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::{Command, ExitStatus, Stdio},
 };
 use tree_sitter::Parser;
 
@@ -18,19 +18,14 @@ pub fn maven_is_installed() -> bool {
         return false;
     }
 }
-pub fn mvn_project_compiles(proj_dir: &str) -> bool {
+pub fn mvn_project_compiles(project_root: &str) -> bool {
     assert!(
         maven_is_installed(),
         "mvn command is not present, install the maven package from your package manager"
     );
-    let cwd = env::current_dir().expect("for some reason couldnt get the current dir");
-    println!("The current dir is {:?}", cwd);
-    let pom_path = cwd.join(proj_dir).join("pom.xml");
-    println!("The path is: {:?}", pom_path);
-    assert!(
-        pom_path.exists(),
-        "pom.xml maven file is not present in the current working directory"
-    );
+    let pom_path =
+        folder_pom_xml_file(project_root).expect("There was no pom.xml in the folder provided");
+
     let mut mvn = Command::new("mvn");
     mvn.arg("-f").arg(pom_path).arg("clean").arg("compile");
     if let Ok(res) = mvn.status() {
@@ -86,6 +81,97 @@ pub fn assert_program_is_syntactically_correct(java_str: &str) {
     assert!(!tree.root_node().has_error());
 }
 
+use java_builder::maven_builder::DBInfo;
+use std::net::SocketAddr;
+
+fn run_postgres_container(db: &DBInfo) -> ExitStatus {
+    let pg_user = "-e POSTGRES_USER=".to_owned() + &db.username;
+    let pg_passwd = "-e POSTGRES_PASSWORD=".to_owned() + &db.password;
+    let pg_db = "-e POSTGRES_DB=".to_owned() + &db.db;
+
+    let res = Command::new("docker")
+        .arg("run")
+        .arg("--name")
+        .arg("rust-postgres-container")
+        .arg("--replace")
+        .arg(pg_user)
+        .arg(pg_passwd)
+        .arg(pg_db)
+        .arg("-p")
+        .arg("5432:5432")
+        .arg("-d")
+        .arg("postgres")
+        .status()
+        .expect("Could not spin up docker postgresql");
+    res
+}
+
+fn kill_postgres_container(db: &DBInfo) -> std::io::Result<ExitStatus> {
+    Command::new("docker")
+        .arg("stop")
+        .arg("rust-postgres-container")
+        .status()
+}
+
+fn folder_pom_xml_file(project_root: &str) -> Option<PathBuf> {
+    let cwd = env::current_dir().unwrap();
+    let pom_path = cwd.join(project_root).join("pom.xml");
+    if pom_path.exists() {
+        return Some(pom_path);
+    } else {
+        return None;
+    }
+}
+
+pub fn assert_spring_server_is_up(server_location: SocketAddr, db: &DBInfo, project_root: &str) {
+    assert!(
+        maven_is_installed(),
+        "mvn command is not present, install the maven package from your package manager"
+    );
+    let pom_path =
+        folder_pom_xml_file(project_root).expect("There was no pom.xml in the folder provided");
+    let res = run_postgres_container(db);
+    println!("Result of docker run postgres {res}");
+    let mut mvn = Command::new("mvn");
+    mvn.arg("-f").arg(pom_path).arg("spring-boot:run");
+    let mut result = mvn
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("Failed to run mvn spring-boot:run for project");
+    println!("Command output was: {:?}", &result);
+    match result.stdout.as_mut() {
+        Some(out) => {
+            let buf_reader = BufReader::new(out);
+            for line in buf_reader.lines() {
+                match line {
+                    Ok(s) => {
+                        if s.contains("Tomcat started on port") {
+                            break;
+                        }
+                    }
+                    Err(e) => println!("An error occurred : {e}"),
+                }
+            }
+        }
+        None => return,
+    }
+    let curl_localhost = Command::new("curl")
+        .arg(server_location.to_string())
+        .status()
+        .expect("Something went wrong when executing curl")
+        .success();
+    match kill_postgres_container(db) {
+        Ok(ex_status) => {
+            println!("Docker postgres container was stopped properly with status {ex_status}")
+        }
+        Err(e) => println!("There was an error when stopping postgres container {e}"),
+    }
+    match result.kill() {
+        Ok(r) => println!("Spring server was properly shutdown"),
+        Err(e) => println!("Spring server could not be killed"),
+    };
+    assert!(curl_localhost, "Curl command to localhost failed");
+}
 fn find_java_files_in_recursively(path: impl AsRef<Path>) -> Vec<PathBuf> {
     let Ok(entries) = fs::read_dir(path) else {
         return vec![];
@@ -106,63 +192,6 @@ fn find_java_files_in_recursively(path: impl AsRef<Path>) -> Vec<PathBuf> {
         })
         .collect()
 }
-use std::net::SocketAddr;
-pub fn assert_spring_server_is_up(server_location: SocketAddr, project_root: &str) {
-    //will probs extract the pom_thing to a fn
-    assert!(
-        maven_is_installed(),
-        "mvn command is not present, install the maven package from your package manager"
-    );
-    let cwd = env::current_dir().expect("for some reason couldnt get the current dir");
-    let pom_path = cwd.join(project_root).join("pom.xml");
-    assert!(
-        pom_path.exists(),
-        "pom.xml maven file is not present in the current working directory"
-    );
-
-    let mut mvn = Command::new("mvn");
-    mvn.arg("-f").arg(pom_path).arg("spring-boot:run");
-    let mut result = mvn
-        .stdout(Stdio::piped())
-        .spawn()
-        .expect("Failed to run mvn spring-boot:run for project");
-    println!("Command output was: {:?}", &result);
-    match result.stdout.as_mut() {
-        Some(out) => {
-            let buf_reader = BufReader::new(out);
-            for line in buf_reader.lines() {
-                match line {
-                    Ok(s) => {
-                        if s.contains("Tomcat started on port") {
-                            break;
-                        }
-
-                        println!("Got string: {s}")
-                    }
-                    Err(e) => println!("An error occurred : {e}"),
-                }
-            }
-        }
-        None => return,
-    }
-    // let st = result.
-    //     .wait_with_output()
-    //     .expect("Waiting on spring boot failed")
-    //     .status;
-    // println!("Waiting: {st}");
-    let curl_localhost = Command::new("curl")
-        .arg(server_location.to_string())
-        .status()
-        .expect("Something went wrong when executing curl")
-        .success();
-
-    match result.kill() {
-        Ok(r) => println!("Spring server was properly shutdown"),
-        Err(e) => println!("Spring server could not be killed"),
-    };
-    assert!(curl_localhost, "Curl command to localhost failed");
-}
-
 pub fn assert_a_class_file_exists_in_that(path: impl AsRef<Path>, f: impl Fn(String) -> bool) {
     let java_files = find_java_files_in_recursively(path.as_ref());
     dbg!("Java Files in {}  {}", path.as_ref(), &java_files);

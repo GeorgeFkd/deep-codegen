@@ -8,6 +8,7 @@ use rand::Rng;
 use std::{
     fs::{self, create_dir, create_dir_all, remove_dir_all, write},
     net::{IpAddr, Ipv4Addr, SocketAddr},
+    process::Command,
 };
 use types::TypeName;
 
@@ -24,8 +25,25 @@ struct Progress {
     pub has_created_initial_folders: bool,
 }
 
+#[derive(Clone)]
+pub struct DBInfo {
+    pub db_port: u16,
+    pub username: String,
+    pub password: String,
+    pub db: String,
+}
+
+fn create_db_info(pom_xml: &PomXml) -> DBInfo {
+    DBInfo {
+        db_port: 5432,
+        username: pom_xml.project_name.to_ascii_lowercase(),
+        password: pom_xml.project_name.to_ascii_lowercase(),
+        db: pom_xml.project_name.to_ascii_lowercase() + "_db",
+    }
+}
 pub struct MavenCodebase {
     port: u16,
+    db_info: DBInfo,
     test_folder: String,
     code_folder: String,
     res_folder: String,
@@ -67,6 +85,13 @@ fn generate_classes_in(classes: Vec<JavaClass>, folder: String) {
 impl MavenCodebase {
     pub fn get_server_addr(&self) -> SocketAddr {
         SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), self.port)
+    }
+
+    pub fn get_db_info(&self) -> DBInfo {
+        self.db_info.clone()
+    }
+    pub fn get_db_port(&self) -> u16 {
+        self.db_info.db_port
     }
     fn create_initial_folders(&mut self) {
         if !self.progress.has_created_initial_folders {
@@ -127,32 +152,36 @@ impl MavenCodebase {
         {
             let app_name = &self.pom_xml.project_name.to_ascii_lowercase();
             //can easily be extended for other DBs
-            let db_url = "spring.datasource.url=jdbc:postgresql://localhost:5432/"
-                .to_ascii_lowercase()
-                + app_name
-                + "_db\n";
+            let db_url = "spring.datasource.url=jdbc:postgresql://localhost:".to_owned()
+                + &self.db_info.db_port.to_string()
+                + "/"
+                + &self.db_info.db
+                + "\n";
             application_properties_file += &db_url;
 
-            let username = "spring.datasource.username=".to_owned() + app_name;
+            let username = "spring.datasource.username=".to_owned() + &self.db_info.username;
             application_properties_file += &username;
             application_properties_file.push('\n');
 
-            let password = "spring.datasource.password=".to_owned() + app_name;
+            let password = "spring.datasource.password=".to_owned() + &self.db_info.password;
             application_properties_file += &password;
 
-            let pg_user = "-e POSTGRES_USER=".to_owned() + app_name;
-            let pg_passwd = "-e POSTGRES_PASSWORD=".to_owned() + app_name;
-            let pg_db = "-e POSTGRES_DB=".to_owned() + app_name + "_db";
+            // let pg_user = "-e POSTGRES_USER=".to_owned() + &self.db_info.username;
+            // let pg_passwd = "-e POSTGRES_PASSWORD=".to_owned() + &self.db_info.password;
+            // let pg_db = "-e POSTGRES_DB=".to_owned() + &self.db_info.db;
             //docker run --name postgres-container -e POSTGRES_USER=myuser -e POSTGRES_PASSWORD=mypassword -e POSTGRES_DB=mydb -p 5432:5432 -d postgres
-            // let res = Command::new("sudo")
-            //     .arg("docker")
+            //using podman docker emulation to avoid sudo
+            // let res = Command::new("docker")
             //     .arg("run")
             //     .arg("--name")
             //     .arg("rust-postgres-container")
+            //     .arg("--replace")
             //     .arg(pg_user)
             //     .arg(pg_passwd)
             //     .arg(pg_db)
             //     .arg("-p")
+            //     //does this need to be parameterised?
+            //     //
             //     .arg("5432:5432")
             //     .arg("-d")
             //     .arg("postgres")
@@ -214,6 +243,7 @@ impl MavenCodebase {
         }
         self.progress.has_written_initial_files = true;
     }
+
     pub fn new(pom_xml: PomXml, output_dir: &str) -> Self {
         let main_default = output_dir.to_string() + "/src/main";
         let project_path = format!("{}.{}", &pom_xml.group_id, &pom_xml.artifact_id);
@@ -225,9 +255,9 @@ impl MavenCodebase {
         let test_folder = output_dir.to_string() + &"/src/test/java/" + &package_path;
         let res_folder = main_default.to_owned() + &"/resources";
         let mut rng = rand::thread_rng();
-        rng.gen_range(8082..=9000);
         Self {
             port: rng.gen::<u16>(),
+            db_info: create_db_info(&pom_xml),
             pom_xml,
             root_folder: output_dir.to_string(),
             code_folder,

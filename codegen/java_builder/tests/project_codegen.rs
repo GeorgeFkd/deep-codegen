@@ -48,9 +48,10 @@ mod java_project_tests {
         let mut mvn_code = MavenCodebase::new(pom_xml, top_folder);
         mvn_code = mvn_code.add_entity(example.clone());
         let addr = mvn_code.get_server_addr();
+        let db = mvn_code.get_db_info().to_owned();
         mvn_code.generate_code();
 
-        assert_spring_server_is_up(addr, top_folder);
+        assert_spring_server_is_up(addr, &db, top_folder);
     }
 
     #[test]
