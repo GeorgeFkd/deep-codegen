@@ -28,6 +28,32 @@ mod java_project_tests {
     }
 
     #[test]
+    fn can_configure_spring_boot_successfully() {
+        let top_folder = "generated3";
+        let mut pom_xml = PomXml::new();
+        let descr = "This is a project to showcase the methodology of runtime verification in the context of event based systems".to_owned();
+        let project = "TempContRvTool".to_owned();
+        let java_version = "17".to_owned();
+        let group_id = "org.javacodegen".to_owned();
+        let artifact_id = "rvtool".to_owned();
+        pom_xml = pom_xml.description(descr.clone());
+        pom_xml = pom_xml.project_name(project.clone());
+        pom_xml = pom_xml.java_version(java_version.clone());
+        pom_xml = pom_xml.group_id(group_id.clone());
+        pom_xml = pom_xml.artifact(artifact_id.clone());
+        //should be running a postgresql instance locally in order to run this test
+        pom_xml = pom_xml.spring_boot().postgresql();
+
+        let example = sample_class(&pom_xml);
+        let mut mvn_code = MavenCodebase::new(pom_xml, top_folder);
+        mvn_code = mvn_code.add_entity(example.clone());
+        let addr = mvn_code.get_server_addr();
+        mvn_code.generate_code();
+
+        assert_spring_server_is_up(addr, top_folder);
+    }
+
+    #[test]
     fn can_generate_crud_classes() {
         let top_folder = "generated";
         let mut pom_xml = PomXml::new();
@@ -47,7 +73,7 @@ mod java_project_tests {
         let mut mvn_code = MavenCodebase::new(pom_xml, top_folder);
         mvn_code = mvn_code.add_entity(example.clone());
         mvn_code.generate_code();
-        //there is a file that contains the name i provided
+        //there is a file that contains the name of the class  i provided
         assert_a_class_file_exists_in_that(top_folder, |content| {
             content.contains(&example.class_name)
         });
@@ -74,9 +100,9 @@ mod java_project_tests {
         // cleanup_folder(top_folder);
     }
 
-    use std::path::Path;
+    use std::{net::SocketAddr, path::Path};
 
-    use crate::common;
+    use crate::common::{self, assert_spring_server_is_up};
     #[test]
     fn can_create_maven_folders() {
         let top_folder = "generated2";
@@ -130,10 +156,7 @@ mod java_project_tests {
             "org.springframework.boot",
             "spring-boot-configuration-processor",
         );
-        pom_xml = pom_xml.add_library(
-            sb_conf_library.0.clone().into(),
-            sb_conf_library.1.clone().into(),
-        );
+        pom_xml = pom_xml.add_library(sb_conf_library.0.into(), sb_conf_library.1.into());
 
         pom_xml = pom_xml.spring_boot();
         pom_xml = pom_xml.postgresql();

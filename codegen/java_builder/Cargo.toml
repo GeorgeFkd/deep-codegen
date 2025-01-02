@@ -9,3 +9,4 @@ cc="*"
 [dependencies]
 tree-sitter = "0.24.4"
 tree-sitter-java = "0.23.4"
+rand = "0.8.5"

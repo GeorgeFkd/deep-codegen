@@ -1,9 +1,9 @@
 use std::{
     env, fs,
+    io::{self, BufRead, BufReader},
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
-
 use tree_sitter::Parser;
 
 pub fn maven_is_installed() -> bool {
@@ -105,6 +105,62 @@ fn find_java_files_in_recursively(path: impl AsRef<Path>) -> Vec<PathBuf> {
             vec![]
         })
         .collect()
+}
+use std::net::SocketAddr;
+pub fn assert_spring_server_is_up(server_location: SocketAddr, project_root: &str) {
+    //will probs extract the pom_thing to a fn
+    assert!(
+        maven_is_installed(),
+        "mvn command is not present, install the maven package from your package manager"
+    );
+    let cwd = env::current_dir().expect("for some reason couldnt get the current dir");
+    let pom_path = cwd.join(project_root).join("pom.xml");
+    assert!(
+        pom_path.exists(),
+        "pom.xml maven file is not present in the current working directory"
+    );
+
+    let mut mvn = Command::new("mvn");
+    mvn.arg("-f").arg(pom_path).arg("spring-boot:run");
+    let mut result = mvn
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("Failed to run mvn spring-boot:run for project");
+    println!("Command output was: {:?}", &result);
+    match result.stdout.as_mut() {
+        Some(out) => {
+            let buf_reader = BufReader::new(out);
+            for line in buf_reader.lines() {
+                match line {
+                    Ok(s) => {
+                        if s.contains("Tomcat started on port") {
+                            break;
+                        }
+
+                        println!("Got string: {s}")
+                    }
+                    Err(e) => println!("An error occurred : {e}"),
+                }
+            }
+        }
+        None => return,
+    }
+    // let st = result.
+    //     .wait_with_output()
+    //     .expect("Waiting on spring boot failed")
+    //     .status;
+    // println!("Waiting: {st}");
+    let curl_localhost = Command::new("curl")
+        .arg(server_location.to_string())
+        .status()
+        .expect("Something went wrong when executing curl")
+        .success();
+
+    match result.kill() {
+        Ok(r) => println!("Spring server was properly shutdown"),
+        Err(e) => println!("Spring server could not be killed"),
+    };
+    assert!(curl_localhost, "Curl command to localhost failed");
 }
 
 pub fn assert_a_class_file_exists_in_that(path: impl AsRef<Path>, f: impl Fn(String) -> bool) {

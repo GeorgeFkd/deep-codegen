@@ -61,7 +61,6 @@ impl Annotation {
 impl Codegen for Annotation {
     fn generate_code(&self) -> String {
         let mut result = "".to_string();
-
         result.push('\n');
         result.push_str(&format!("@{} ", self.qualified_name));
         if let Some(ref params_list) = self.params_list {

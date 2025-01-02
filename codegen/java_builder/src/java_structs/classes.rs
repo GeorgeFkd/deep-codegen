@@ -132,6 +132,10 @@ impl JavaClass {
         }
     }
 
+    pub fn package_in_place(&mut self, pkg: String) {
+        self.package = pkg;
+    }
+
     pub fn package(mut self, pkg: String) -> Self {
         self.package = pkg;
         self

@@ -10,6 +10,8 @@ pub mod classes;
 pub mod methods;
 pub mod modifiers;
 use std::hash::{Hash, Hasher};
+
+use annotations::Annotation;
 //TODO implement builders
 //and put the required things on the new call
 pub trait Codegen {
@@ -23,7 +25,7 @@ pub trait Codegen {
 pub struct VariableParam {
     pub name: String,
     pub type_: types::TypeName,
-    pub annotation: Vec<annotations::Annotation>,
+    pub annotation: Vec<Annotation>,
 }
 
 impl VariableParam {
@@ -33,6 +35,11 @@ impl VariableParam {
             type_,
             annotation: vec![],
         }
+    }
+
+    pub fn annotation(mut self, a: Annotation) -> Self {
+        self.annotation.push(a);
+        self
     }
 }
 impl Codegen for Vec<VariableParam> {

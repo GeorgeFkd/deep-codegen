@@ -102,6 +102,10 @@ impl Interface {
         self
     }
 
+    pub fn package_in_place(&mut self, pkg: String) {
+        self.package = pkg;
+    }
+
     pub fn new(package_name: String, interface_name: String) -> Self {
         // assert!(
         //     package_name.contains("."),
