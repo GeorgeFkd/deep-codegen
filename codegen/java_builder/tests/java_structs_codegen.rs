@@ -340,13 +340,4 @@ pub mod java_structs_tests {
             assert!(java_str.contains(&m.name), "{}", msg);
         }
     }
-
-    //these could also be impl Into<> for <>
-    fn extract_interface_from_class(class_obj: &JavaClass) -> Interface {
-        todo!("Class to interface conversion is under construction");
-    }
-
-    fn implement_interface(interface: &Interface) -> JavaClass {
-        todo!("Automatic Interface implementation is under construction");
-    }
 }

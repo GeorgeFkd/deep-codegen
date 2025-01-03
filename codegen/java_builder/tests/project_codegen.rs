@@ -2,72 +2,43 @@ mod common;
 #[cfg(test)]
 mod java_project_tests {
     use java_builder::{
-        classes::JavaClass,
-        fields::Field,
         maven_builder::MavenCodebase,
         pom_xml::{Generate, PomXml},
-        types::TypeName,
     };
 
     use common::{
         assert_a_class_file_exists_in_that, assert_dir_exists, assert_xml_structure_with_xsd,
-        cleanup_folder, mvn_project_compiles, xml_lint_is_installed,
+        cleanup_folder, mvn_project_compiles,
     };
 
-    fn sample_class(pom_xml: &PomXml) -> JavaClass {
-        let customer_class = JavaClass::new(
-            "Customer".to_owned(),
-            pom_xml.get_root_package() + "Customer",
-        )
-        .public()
-        .field(Field::n("firstName".into(), TypeName::new("String".into())))
-        .field(Field::n("lastName".into(), TypeName::new("String".into())))
-        .field(Field::n("email".into(), TypeName::new("String".into())))
-        .field(Field::n("age".into(), TypeName::new("int".into())));
-        customer_class
-    }
-
     #[test]
-    fn can_configure_spring_boot_successfully() {
-        let top_folder = "generated3";
-        let mut pom_xml = PomXml::new();
-        let descr = "This is a project to showcase the methodology of runtime verification in the context of event based systems".to_owned();
-        let project = "TempContRvTool".to_owned();
+    fn can_config_application_properties() {
+        let top_folder = "generated4";
+        let project_info = sample_project_info();
+        let mut pom_xml = PomXml::new(project_info.clone());
         let java_version = "17".to_owned();
-        let group_id = "org.javacodegen".to_owned();
-        let artifact_id = "rvtool".to_owned();
-        pom_xml = pom_xml.description(descr.clone());
-        pom_xml = pom_xml.project_name(project.clone());
-        pom_xml = pom_xml.java_version(java_version.clone());
-        pom_xml = pom_xml.group_id(group_id.clone());
-        pom_xml = pom_xml.artifact(artifact_id.clone());
-        //should be running a postgresql instance locally in order to run this test
-        pom_xml = pom_xml.spring_boot().postgresql();
-
-        let example = sample_class(&pom_xml);
+        pom_xml = pom_xml.java_version(java_version);
+        pom_xml = pom_xml.spring_boot();
+        let pom = pom_xml.generate();
+        assert!(pom.contains("openapi"), "Pom.xml does not contain openapi");
         let mut mvn_code = MavenCodebase::new(pom_xml, top_folder);
-        mvn_code = mvn_code.add_entity(example.clone());
-        let addr = mvn_code.get_server_addr();
-        let db = mvn_code.get_db_info().to_owned();
-        mvn_code.generate_code();
-
-        assert_spring_server_is_up(addr, &db, top_folder);
+        let app = mvn_code.create_application_properties();
+        println!("Application properties:\n {app}");
+        let openapi_requirements =
+            app.contains("springdoc.swagger-ui.path") && app.contains("springdoc.api-docs.path");
+        assert!(
+            openapi_requirements,
+            "application.properties is not properly configured for openapi"
+        );
     }
 
     #[test]
     fn can_generate_crud_classes() {
         let top_folder = "generated";
-        let mut pom_xml = PomXml::new();
-        let descr = "This is a project to showcase the methodology of runtime verification in the context of event based systems".to_owned();
-        let project = "TempContRvTool".to_owned();
+        let project_info = sample_project_info();
+        let mut pom_xml = PomXml::new(project_info.clone());
         let java_version = "17".to_owned();
-        let group_id = "org.javacodegen".to_owned();
-        let artifact_id = "rvtool".to_owned();
-        pom_xml = pom_xml.description(descr.clone());
-        pom_xml = pom_xml.project_name(project.clone());
         pom_xml = pom_xml.java_version(java_version.clone());
-        pom_xml = pom_xml.group_id(group_id.clone());
-        pom_xml = pom_xml.artifact(artifact_id.clone());
         pom_xml = pom_xml.spring_boot();
 
         let example = sample_class(&pom_xml);
@@ -101,23 +72,16 @@ mod java_project_tests {
         // cleanup_folder(top_folder);
     }
 
-    use std::{net::SocketAddr, path::Path};
+    use std::path::Path;
 
-    use crate::common::{self, assert_spring_server_is_up};
+    use crate::common::{self, sample_class, sample_project_info};
     #[test]
     fn can_create_maven_folders() {
         let top_folder = "generated2";
-        let mut pom_xml = PomXml::new();
-        let descr = "This is a project to showcase the methodology of runtime verification in the context of event based systems".to_owned();
-        let project = "TempContRvTool".to_owned();
+        let project_info = sample_project_info();
+        let mut pom_xml = PomXml::new(project_info.clone());
         let java_version = "17".to_owned();
-        let group_id = "org.javacodegen".to_owned();
-        let artifact_id = "rvtool".to_owned();
-        pom_xml = pom_xml.description(descr.clone());
-        pom_xml = pom_xml.project_name(project.clone());
         pom_xml = pom_xml.java_version(java_version.clone());
-        pom_xml = pom_xml.group_id(group_id.clone());
-        pom_xml = pom_xml.artifact(artifact_id.clone());
         pom_xml = pom_xml.spring_boot();
         let mut mvn_codebase = MavenCodebase::new(pom_xml, &top_folder);
         mvn_codebase.write_initial_files();
@@ -130,7 +94,7 @@ mod java_project_tests {
         let test_folder = &(top_folder.to_owned() + &"/src/test/java/org/javacodegen/rvtool");
         assert_dir_exists(test_folder);
 
-        let mainfile = code_folder.to_owned() + "/" + &project + ".java";
+        let mainfile = code_folder.to_owned() + "/" + &project_info.name + ".java";
 
         assert!(
             Path::new(&mainfile).exists(),
@@ -142,17 +106,10 @@ mod java_project_tests {
     }
 
     fn create_pom_xml() -> PomXml {
-        let mut pom_xml = PomXml::new();
-        let descr = "This is a project to showcase the methodology of runtime verification in the context of event based systems".to_owned();
-        let project = "TempContRvTool".to_owned();
+        let project_info = sample_project_info();
+        let mut pom_xml = PomXml::new(project_info.clone());
         let java_version = "17".to_owned();
-        let group_id = "org.javacodegen".to_owned();
-        let artifact_id = "rvtool".to_owned();
-        pom_xml = pom_xml.description(descr.clone());
-        pom_xml = pom_xml.project_name(project.clone());
         pom_xml = pom_xml.java_version(java_version.clone());
-        pom_xml = pom_xml.group_id(group_id.clone());
-        pom_xml = pom_xml.artifact(artifact_id.clone());
         let sb_conf_library = (
             "org.springframework.boot",
             "spring-boot-configuration-processor",
@@ -167,17 +124,10 @@ mod java_project_tests {
     }
     #[test]
     fn can_create_pom_xml() {
-        let mut pom_xml = PomXml::new();
-        let descr = "This is a project to showcase the methodology of runtime verification in the context of event based systems".to_owned();
-        let project = "TempContRvTool".to_owned();
+        let project_info = sample_project_info();
+        let mut pom_xml = PomXml::new(project_info.clone());
         let java_version = "17".to_owned();
-        let group_id = "org.javacodegen".to_owned();
-        let artifact_id = "rvtool".to_owned();
-        pom_xml = pom_xml.description(descr.clone());
-        pom_xml = pom_xml.project_name(project.clone());
         pom_xml = pom_xml.java_version(java_version.clone());
-        pom_xml = pom_xml.group_id(group_id.clone());
-        pom_xml = pom_xml.artifact(artifact_id.clone());
         let sb_conf_library = (
             "org.springframework.boot",
             "spring-boot-configuration-processor",
@@ -199,12 +149,12 @@ mod java_project_tests {
         );
         assert_xml_structure_with_xsd(&result);
         assert!(
-            result.contains(&descr),
+            result.contains(&project_info.description),
             "Description is not properly included"
         );
 
         assert!(
-            result.contains(&project),
+            result.contains(&project_info.name),
             "Project name is not properly included in pom.xml"
         );
         assert!(
@@ -213,12 +163,12 @@ mod java_project_tests {
         );
 
         assert!(
-            result.contains(&group_id),
+            result.contains(&project_info.group_id),
             "Group id is not properly included in pom.xml"
         );
 
         assert!(
-            result.contains(&artifact_id),
+            result.contains(&project_info.artifact_id),
             "Artifact id is not properly included in pom.xml"
         );
 

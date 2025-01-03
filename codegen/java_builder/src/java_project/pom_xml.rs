@@ -1,11 +1,7 @@
-use super::spring_packages::*;
 pub struct PomXml {
-    pub description: String,
-    pub project_name: String,
     pub java: String,
-    pub group_id: String,
-    pub artifact_id: String,
     pub dependencies: Vec<Library>,
+    pub project_info: ProjectInfo,
     //It has the same attributes thats why
     //+ a relative path ofc
     pub parent_pom: Library,
@@ -16,6 +12,8 @@ pub struct Library {
     pub artifact_id: String,
     version: Option<String>,
 }
+
+#[derive(Clone)]
 pub struct ProjectInfo {
     pub group_id: String,
     pub artifact_id: String,
@@ -85,20 +83,17 @@ impl Generate for Vec<Library> {
 }
 impl PomXml {
     pub fn get_root_package(&self) -> String {
-        self.group_id.to_owned() + "." + &self.artifact_id
+        self.project_info.group_id.to_owned() + "." + &self.project_info.artifact_id
     }
 
     pub fn has_dependency_that(&self, f: impl Fn(&Library) -> bool) -> bool {
         self.dependencies.iter().any(f)
     }
 
-    pub fn new() -> Self {
+    pub fn new(project_info: ProjectInfo) -> Self {
         Self {
-            description: "".to_owned(),
-            project_name: "".to_owned(),
+            project_info,
             java: "".to_owned(),
-            group_id: "".to_owned(),
-            artifact_id: "".to_owned(),
             dependencies: vec![],
             parent_pom: Library::default(),
         }
@@ -109,7 +104,7 @@ impl PomXml {
     }
 
     pub fn artifact(mut self, id: String) -> Self {
-        self.artifact_id = id;
+        self.project_info.artifact_id = id;
         self
     }
 
@@ -124,21 +119,22 @@ impl PomXml {
         self = self.spring_boot_starter_web();
         self = self.lombok();
         self = self.spring_boot_starter_data_jpa();
+        self = self.openapi();
         self
     }
 
     pub fn description(mut self, descr: String) -> Self {
-        self.description = descr;
+        self.project_info.description = descr;
         self
     }
 
     pub fn project_name(mut self, name: String) -> Self {
-        self.project_name = name;
+        self.project_info.name = name;
         self
     }
 
     pub fn group_id(mut self, id: String) -> Self {
-        self.group_id = id;
+        self.project_info.group_id = id;
         self
     }
 
@@ -161,6 +157,21 @@ impl PomXml {
     fn check_dependencies_exist() {
         todo!("implement a way to check if dependencies exist with their related versions");
     }
+
+    pub fn openapi(mut self) -> PomXml {
+        self.dependencies.push(Library::new_with_version(
+            "org.springdoc".into(),
+            "springdoc-openapi-starter-webmvc-ui".into(),
+            "2.7.0".into(),
+        ));
+
+        self.dependencies.push(Library::new_with_version(
+            "org.springdoc".into(),
+            "springdoc-openapi-starter-webmvc-api".into(),
+            "2.7.0".into(),
+        ));
+        self
+    }
 }
 
 impl Generate for PomXml {
@@ -178,11 +189,12 @@ impl Generate for PomXml {
         }
         result += "\n</parent>";
 
-        result += &(r#"<description>"#.to_owned() + &self.description + &"</description>\n");
-        result += &(r#"<name>"#.to_owned() + &self.project_name + &"</name>\n");
-        result += &("<groupId>".to_owned() + &self.group_id + &"</groupId>\n");
+        result +=
+            &(r#"<description>"#.to_owned() + &self.project_info.description + &"</description>\n");
+        result += &(r#"<name>"#.to_owned() + &self.project_info.name + &"</name>\n");
+        result += &("<groupId>".to_owned() + &self.project_info.group_id + &"</groupId>\n");
 
-        result += &("<artifactId>".to_owned() + &self.artifact_id + &"</artifactId>");
+        result += &("<artifactId>".to_owned() + &self.project_info.artifact_id + &"</artifactId>");
         result += &("<version>".to_owned() + &"0.0.1-SNAPSHOT" + &"</version>");
         result += "<properties>\n";
         result += &("<java.version>".to_owned() + &self.java + &"</java.version>");

@@ -5,8 +5,19 @@ use std::{
     process::{Command, ExitStatus, Stdio},
 };
 use tree_sitter::Parser;
-
-pub fn maven_is_installed() -> bool {
+pub fn sample_class(pom_xml: &PomXml) -> JavaClass {
+    let customer_class = JavaClass::new(
+        "Customer".to_owned(),
+        pom_xml.get_root_package() + "Customer",
+    )
+    .public()
+    .field(Field::n("firstName".into(), TypeName::new("String".into())))
+    .field(Field::n("lastName".into(), TypeName::new("String".into())))
+    .field(Field::n("email".into(), TypeName::new("String".into())))
+    .field(Field::n("age".into(), TypeName::new("int".into())));
+    customer_class
+}
+fn maven_is_installed() -> bool {
     let mvn = Command::new("mvn")
         .arg("--version")
         .stdout(Stdio::null())
@@ -34,7 +45,7 @@ pub fn mvn_project_compiles(project_root: &str) -> bool {
         false
     }
 }
-pub fn xml_lint_is_installed() -> bool {
+fn xml_lint_is_installed() -> bool {
     //just running the command returns a help message and exit code == 1
     let xmllint = Command::new("xmllint")
         .arg("--version")
@@ -66,7 +77,6 @@ pub fn assert_dir_exists(dir: &str) {
         dir
     );
 }
-
 fn make_java_parser() -> Parser {
     let mut parser = Parser::new();
     parser
@@ -81,7 +91,13 @@ pub fn assert_program_is_syntactically_correct(java_str: &str) {
     assert!(!tree.root_node().has_error());
 }
 
-use java_builder::maven_builder::DBInfo;
+use java_builder::{
+    classes::JavaClass,
+    fields::Field,
+    maven_builder::DBInfo,
+    pom_xml::{PomXml, ProjectInfo},
+    types::TypeName,
+};
 use std::net::SocketAddr;
 
 fn run_postgres_container(db: &DBInfo) -> ExitStatus {
@@ -106,7 +122,7 @@ fn run_postgres_container(db: &DBInfo) -> ExitStatus {
     res
 }
 
-fn kill_postgres_container(db: &DBInfo) -> std::io::Result<ExitStatus> {
+fn kill_postgres_container(_db: &DBInfo) -> std::io::Result<ExitStatus> {
     Command::new("docker")
         .arg("stop")
         .arg("rust-postgres-container")
@@ -170,7 +186,10 @@ pub fn assert_spring_server_is_up(server_location: SocketAddr, db: &DBInfo, proj
         Ok(r) => println!("Spring server was properly shutdown"),
         Err(e) => println!("Spring server could not be killed"),
     };
-    assert!(curl_localhost, "Curl command to localhost failed");
+    assert!(
+        curl_localhost,
+        "Curl command to localhost failed, spring server errored"
+    );
 }
 fn find_java_files_in_recursively(path: impl AsRef<Path>) -> Vec<PathBuf> {
     let Ok(entries) = fs::read_dir(path) else {
@@ -191,6 +210,16 @@ fn find_java_files_in_recursively(path: impl AsRef<Path>) -> Vec<PathBuf> {
             vec![]
         })
         .collect()
+}
+
+pub fn sample_project_info() -> ProjectInfo {
+    ProjectInfo {
+            name: "TempContRvTool".to_owned(),
+            version: "".to_owned(),
+            group_id: "org.javacodegen".to_owned(),
+            artifact_id: "rvtool".to_owned(),
+            description:"This is a project to showcase the methodology of runtime verification in the context of event based systems".to_owned()
+        }
 }
 pub fn assert_a_class_file_exists_in_that(path: impl AsRef<Path>, f: impl Fn(String) -> bool) {
     let java_files = find_java_files_in_recursively(path.as_ref());

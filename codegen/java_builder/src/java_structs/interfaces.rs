@@ -15,19 +15,12 @@ pub struct Interface {
     pub imports: Vec<Import>,
     pub superclass: Option<TypeName>,
     pub name: String,
-    //i need a way to
     pub methods: Vec<Method>,
-    //abstract should not be used
-    //should static be used? it does not make that much sense
     pub modifier: AccessModifiers,
-    //i dont like the GenericParams thing
-    //it might be better to just do a Vec<Generic>
-    //so it is easy to reference the same generic
-    //in different places
     pub generics: GenericParams,
 }
 //not using it but is the first macro i wrote with some help
-macro_rules! generate_builder_methods_for_enum {
+macro_rules! _generate_builder_methods_for_enum {
     ($struct_name:ident,$field_name:ident,$enum_name:ident,$($variant:ident)+) => {
     impl $struct_name {
         $(
