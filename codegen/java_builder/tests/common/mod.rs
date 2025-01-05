@@ -191,6 +191,7 @@ pub fn assert_spring_server_is_up(server_location: SocketAddr, db: &DBInfo, proj
         "Curl command to localhost failed, spring server errored"
     );
 }
+
 fn find_java_files_in_recursively(path: impl AsRef<Path>) -> Vec<PathBuf> {
     let Ok(entries) = fs::read_dir(path) else {
         return vec![];

@@ -4,14 +4,25 @@ use classes::JavaClass;
 use imports::Import;
 use interfaces::Interface;
 use methods::Method;
-use rand::Rng;
 use std::{
     collections::HashMap,
-    fs::{self, create_dir, create_dir_all, remove_dir_all, write},
+    fs::{self, create_dir, create_dir_all, remove_dir_all, write, DirEntry, File},
+    io::{Read, Seek},
     net::{IpAddr, Ipv4Addr, SocketAddr},
     path::{Path, PathBuf},
 };
 use types::TypeName;
+use zip::{
+    self,
+    result::ZipError,
+    write::{FileOptions, SimpleFileOptions},
+    ZipWriter,
+};
+// use zip::{
+//     result::{ZipError, ZipResult},
+//     write::FileOptions,
+//     ZipWriter,
+// };
 
 use super::{
     crud_builder::{
@@ -68,19 +79,6 @@ struct OutputDirs {
 pub struct MavenCodebase {
     port: u16,
     db_info: DBInfo,
-    // test_folder: PathBuf,
-    // code_folder: PathBuf,
-    // res_folder: PathBuf,
-    // repos_folder: PathBuf,
-    // dtos_folder: PathBuf,
-    // models_folder: PathBuf,
-    // controllers_folder: PathBuf,
-    // services_folder: PathBuf,
-    // repos_suffix: String,
-    // dtos_suffix: String,
-    // models_suffix: String,
-    // controllers_suffix: String,
-    // services_suffix: String,
     root_folder: PathBuf,
     pom_xml: PomXml,
     out_dirs: OutputDirs,
@@ -91,8 +89,63 @@ pub struct MavenCodebase {
     jpa_repos: Vec<Interface>,
     progress: Progress,
 }
+fn find_files_in_dir_recursive(path: impl AsRef<Path>) -> Vec<DirEntry> {
+    let Ok(entries) = fs::read_dir(path) else {
+        return vec![];
+    };
+    entries
+        .flatten()
+        .flat_map(|entry| {
+            let Ok(meta) = entry.metadata() else {
+                return vec![];
+            };
+            if meta.is_dir() {
+                return find_files_in_dir_recursive(entry.path());
+            }
+            if meta.is_file() {
+                return vec![entry];
+            }
+            vec![]
+        })
+        .collect()
+}
+use std::io::Write;
+fn zip_dir<T, U: Iterator<Item = DirEntry>>(
+    it: &mut U,
+    prefix: &str,
+    writer: T,
+    method: zip::CompressionMethod,
+) -> Result<(), ZipError>
+where
+    T: std::io::Write + Seek,
+{
+    let mut zip = zip::ZipWriter::new(writer);
+    let options = SimpleFileOptions::default()
+        .compression_method(method)
+        .unix_permissions(0o755);
 
-//those 2 functions can be merged if there is a change in the structs
+    let mut buffer = Vec::new();
+    let prefix = Path::new(prefix);
+    for entry in it {
+        let path = entry.path();
+        let name = path.strip_prefix(prefix).unwrap();
+        let path_as_str = name.to_str().map(str::to_owned).unwrap();
+        if path.is_file() {
+            println!("adding file {:?} as {:?}", path, name);
+            zip.start_file_from_path(name, options)?;
+            let mut f = File::open(path)?;
+
+            f.read_to_end(&mut buffer)?;
+            zip.write(&buffer)?;
+            buffer.clear();
+        } else if !name.as_os_str().is_empty() {
+            println!("adding dir {path_as_str:?} as {name:?} ...");
+            zip.add_directory(path_as_str, options)?;
+        }
+    }
+    zip.finish()?;
+    Ok(())
+}
 
 impl OutputDirs {
     pub fn new(output_dir: String, package_path: String) -> Self {
@@ -141,7 +194,6 @@ impl OutputDirs {
     pub fn code_folder(&self) -> &PathBuf {
         &self.code_folder
     }
-    //
     pub fn controllers_folder(&self) -> PathBuf {
         let mut controllers_folder = self.code_folder.clone();
         controllers_folder.push(&self.controllers_suffix);
@@ -189,7 +241,18 @@ impl OutputDirs {
         res_folder.push("resources");
         res_folder
     }
-
+    pub fn extract_to_zip(&self) -> PathBuf {
+        let output_path = Path::new("generated-new.zip");
+        let mut files = find_files_in_dir_recursive(Path::new(&self.output_dir));
+        let new_file = File::create(output_path).unwrap();
+        let _ = zip_dir(
+            &mut files.into_iter(),
+            &self.output_dir,
+            new_file,
+            zip::CompressionMethod::Bzip2,
+        );
+        output_path.to_owned()
+    }
     pub fn create_folders(&self) {
         //the order those folders are being created matters,
         //create_dir_all fails if any of the parents exist
@@ -541,7 +604,7 @@ impl MavenCodebase {
             cls.package_in_place(in_package.clone());
         }
     }
-    pub fn generate_code(mut self) {
+    pub fn generate_code(&mut self) {
         self.create_initial_folders();
         self.write_initial_files();
         self.put_classes_in_packages();
@@ -580,6 +643,10 @@ impl MavenCodebase {
                 Err(e) => println!("An error occurred when generating entities {}", e),
             }
         });
+    }
+
+    pub fn extract_to_zip(&self) -> PathBuf {
+        self.out_dirs.extract_to_zip()
     }
 }
 
