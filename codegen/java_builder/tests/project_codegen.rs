@@ -23,7 +23,7 @@ mod java_project_tests {
         assert!(pom.contains("openapi"), "Pom.xml does not contain openapi");
         let mut mvn_code = MavenCodebase::new(pom_xml, top_folder);
         let app = mvn_code.create_application_properties();
-        println!("Application properties:\n {app}");
+        //println!("Application properties:\n {app}");
         let openapi_requirements =
             app.contains("springdoc.swagger-ui.path") && app.contains("springdoc.api-docs.path");
         assert!(

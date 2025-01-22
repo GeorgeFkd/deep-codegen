@@ -84,7 +84,7 @@ impl Codegen for Interface {
             result.push('\n');
         }
         result.push('}');
-        println!("{}", result);
+        //println!("{}", result);
         return result;
     }
 }

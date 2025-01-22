@@ -8,6 +8,7 @@ mod spring_packages;
 
 pub mod crud_builder;
 pub mod maven_builder;
+pub mod output;
 pub mod pom_xml;
 
 // pub mod docs_builder {}

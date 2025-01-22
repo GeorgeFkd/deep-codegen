@@ -1,34 +1,20 @@
 use crate::java_structs::*;
-use annotations::Annotation;
+
 use classes::JavaClass;
 use imports::Import;
 use interfaces::Interface;
 use methods::Method;
 use std::{
     collections::HashMap,
-    fs::{self, create_dir, create_dir_all, remove_dir_all, write, DirEntry, File},
-    io::{Read, Seek},
+    fs::{remove_dir_all, write},
     net::{IpAddr, Ipv4Addr, SocketAddr},
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 use types::TypeName;
-use zip::{
-    self,
-    result::ZipError,
-    write::{FileOptions, SimpleFileOptions},
-    ZipWriter,
-};
-// use zip::{
-//     result::{ZipError, ZipResult},
-//     write::FileOptions,
-//     ZipWriter,
-// };
 
 use super::{
-    crud_builder::{
-        CrudBuilder, // controller_from_class, dto_from_class, jpa_repository_of, service_from_class,
-                     // spring_boot_entity,
-    },
+    crud_builder::CrudBuilder,
+    output::OutputDirs,
     pom_xml::{Generate, PomXml},
 };
 
@@ -65,17 +51,6 @@ fn create_db_info(pom_xml: &PomXml) -> DBInfo {
 
 //TODO make an OutputConfig option that contains the folders and the package names and everything
 
-struct OutputDirs {
-    package_path: String,
-    output_dir: String,
-    controllers_suffix: String,
-    repos_suffix: String,
-    services_suffix: String,
-    dtos_suffix: String,
-    models_suffix: String,
-    code_folder: PathBuf,
-}
-
 pub struct MavenCodebase {
     port: u16,
     db_info: DBInfo,
@@ -88,251 +63,6 @@ pub struct MavenCodebase {
     services: Vec<JavaClass>,
     jpa_repos: Vec<Interface>,
     progress: Progress,
-}
-fn find_files_in_dir_recursive(path: impl AsRef<Path>) -> Vec<DirEntry> {
-    let Ok(entries) = fs::read_dir(path) else {
-        return vec![];
-    };
-    entries
-        .flatten()
-        .flat_map(|entry| {
-            let Ok(meta) = entry.metadata() else {
-                return vec![];
-            };
-            if meta.is_dir() {
-                return find_files_in_dir_recursive(entry.path());
-            }
-            if meta.is_file() {
-                return vec![entry];
-            }
-            vec![]
-        })
-        .collect()
-}
-use std::io::Write;
-fn zip_dir<T, U: Iterator<Item = DirEntry>>(
-    it: &mut U,
-    prefix: &str,
-    writer: T,
-    method: zip::CompressionMethod,
-) -> Result<(), ZipError>
-where
-    T: std::io::Write + Seek,
-{
-    let mut zip = zip::ZipWriter::new(writer);
-    let options = SimpleFileOptions::default()
-        .compression_method(method)
-        .unix_permissions(0o755);
-
-    let mut buffer = Vec::new();
-    let prefix = Path::new(prefix);
-    for entry in it {
-        let path = entry.path();
-        let name = path.strip_prefix(prefix).unwrap();
-        let path_as_str = name.to_str().map(str::to_owned).unwrap();
-        if path.is_file() {
-            println!("adding file {:?} as {:?}", path, name);
-            zip.start_file_from_path(name, options)?;
-            let mut f = File::open(path)?;
-
-            f.read_to_end(&mut buffer)?;
-            zip.write(&buffer)?;
-            buffer.clear();
-        } else if !name.as_os_str().is_empty() {
-            println!("adding dir {path_as_str:?} as {name:?} ...");
-            zip.add_directory(path_as_str, options)?;
-        }
-    }
-    zip.finish()?;
-    Ok(())
-}
-
-impl OutputDirs {
-    pub fn new(output_dir: String, package_path: String) -> Self {
-        let mut code_folder = PathBuf::new();
-        code_folder.push(".");
-        code_folder.push(&output_dir);
-        code_folder.push("src");
-        code_folder.push("main");
-        code_folder.push("java");
-        for pth in package_path.split(".") {
-            code_folder.push(pth);
-        }
-
-        Self {
-            package_path,
-            output_dir,
-            code_folder,
-            dtos_suffix: "".to_owned(),
-            repos_suffix: "".to_owned(),
-            controllers_suffix: "".to_owned(),
-            services_suffix: "".to_owned(),
-            models_suffix: "".to_owned(),
-        }
-    }
-    pub fn dtos(mut self, suffix: String) -> Self {
-        self.dtos_suffix = suffix;
-        self
-    }
-    pub fn repos(mut self, suffix: String) -> Self {
-        self.repos_suffix = suffix;
-        self
-    }
-    pub fn controllers(mut self, suffix: String) -> Self {
-        self.controllers_suffix = suffix;
-        self
-    }
-    pub fn services(mut self, suffix: String) -> Self {
-        self.services_suffix = suffix;
-        self
-    }
-    pub fn models(mut self, suffix: String) -> Self {
-        self.models_suffix = suffix;
-        self
-    }
-
-    pub fn code_folder(&self) -> &PathBuf {
-        &self.code_folder
-    }
-    pub fn controllers_folder(&self) -> PathBuf {
-        let mut controllers_folder = self.code_folder.clone();
-        controllers_folder.push(&self.controllers_suffix);
-        controllers_folder
-    }
-    pub fn models_folder(&self) -> PathBuf {
-        let mut controllers_folder = self.code_folder.clone();
-        controllers_folder.push(&self.models_suffix);
-        controllers_folder
-    }
-    pub fn services_folder(&self) -> PathBuf {
-        let mut controllers_folder = self.code_folder.clone();
-        controllers_folder.push(&self.services_suffix);
-        controllers_folder
-    }
-    pub fn repos_folder(&self) -> PathBuf {
-        let mut controllers_folder = self.code_folder.clone();
-        controllers_folder.push(&self.repos_suffix);
-        controllers_folder
-    }
-    pub fn dtos_folder(&self) -> PathBuf {
-        let mut controllers_folder = self.code_folder.clone();
-        controllers_folder.push(&self.dtos_suffix);
-        controllers_folder
-    }
-
-    pub fn tests_folder(&self) -> PathBuf {
-        let mut test_folder = PathBuf::new();
-        test_folder.push(".");
-        test_folder.push(&self.output_dir);
-        test_folder.push("src");
-        test_folder.push("test");
-        test_folder.push("java");
-        for pth in self.package_path.split(".") {
-            test_folder.push(pth);
-        }
-        test_folder
-    }
-    pub fn resources_folder(&self) -> PathBuf {
-        let mut res_folder = PathBuf::new();
-        res_folder.push(".");
-        res_folder.push(&self.output_dir);
-        res_folder.push("src");
-        res_folder.push("main");
-        res_folder.push("resources");
-        res_folder
-    }
-    pub fn extract_to_zip(&self) -> PathBuf {
-        let output_path = Path::new("generated-new.zip");
-        let mut files = find_files_in_dir_recursive(Path::new(&self.output_dir));
-        let new_file = File::create(output_path).unwrap();
-        let _ = zip_dir(
-            &mut files.into_iter(),
-            &self.output_dir,
-            new_file,
-            zip::CompressionMethod::Bzip2,
-        );
-        output_path.to_owned()
-    }
-    pub fn create_folders(&self) {
-        //the order those folders are being created matters,
-        //create_dir_all fails if any of the parents exist
-
-        if let Err(e) = create_dir_all(&self.code_folder()) {
-            assert!(false, "Failed to create main/java folder, err {}", e);
-        }
-
-        match create_dir(&self.repos_folder()) {
-            Ok(r) => println!("Created repositories folder successfully"),
-            Err(e) => println!("Failed to create {:?} folder {}", &self.repos_folder(), e),
-        }
-        match create_dir(&self.models_folder()) {
-            Ok(r) => println!("Created models folder successfully"),
-            Err(e) => println!("Failed to create {:?} folder {}", &self.models_folder(), e),
-        }
-        match create_dir(&self.services_folder()) {
-            Ok(r) => println!("Created services folder successfully"),
-            Err(e) => println!(
-                "Failed to create {:?} folder {}",
-                &self.services_folder(),
-                e
-            ),
-        }
-
-        if let Err(e) = create_dir(&self.dtos_folder()) {
-            assert!(
-                false,
-                "Failed to create {:?} folder, err {}",
-                &self.dtos_folder(),
-                e
-            );
-        }
-
-        if let Err(e) = create_dir(self.controllers_folder()) {
-            assert!(
-                false,
-                "Failed to create {:?} folder, err {}",
-                &self.controllers_folder(),
-                e
-            );
-        }
-
-        if let Err(e) = create_dir_all(&self.tests_folder()) {
-            assert!(
-                false,
-                "Failed to create {:?} folder, err {}",
-                &self.tests_folder(),
-                e
-            );
-        }
-        if let Err(e) = create_dir(&self.resources_folder()) {
-            assert!(
-                false,
-                "Failed to create {:?} folder,err {}",
-                &self.resources_folder(),
-                e
-            );
-        }
-    }
-
-    fn controllers_suffix(&self) -> &str {
-        &self.controllers_suffix
-    }
-
-    fn repos_suffix(&self) -> &str {
-        &self.repos_suffix
-    }
-
-    fn services_suffix(&self) -> &str {
-        &self.services_suffix
-    }
-
-    fn dtos_suffix(&self) -> &str {
-        &self.dtos_suffix
-    }
-
-    fn models_suffix(&self) -> &str {
-        &self.models_suffix
-    }
 }
 
 impl MavenCodebase {
@@ -437,7 +167,7 @@ impl MavenCodebase {
             assert!(false, "Main file could not be written err {}", e);
         }
 
-        let mut pom_path = self.root_folder.clone();
+        let mut pom_path = PathBuf::from(self.root_folder.as_path());
         pom_path.push("pom");
         pom_path.set_extension("xml");
         if let Err(e) = write(&pom_path, &self.pom_xml.generate()) {
@@ -498,28 +228,28 @@ impl MavenCodebase {
     }
 
     fn models_package(&self) -> String {
-        format!("{}.models", self.pom_xml.get_root_package())
+        [&self.pom_xml.get_root_package(), "repositories"].join(".")
     }
 
     fn repositories_package(&self) -> String {
-        format!("{}.repositories", self.pom_xml.get_root_package())
+        [&self.pom_xml.get_root_package(), "repositories"].join(".")
     }
 
     fn services_package(&self) -> String {
-        format!("{}.services", self.pom_xml.get_root_package())
+        [&self.pom_xml.get_root_package(), "services"].join(".")
     }
 
     fn controllers_package(&self) -> String {
-        format!("{}.controllers", self.pom_xml.get_root_package())
+        [&self.pom_xml.get_root_package(), "services"].join(".")
     }
 
     fn dto_package(&self) -> String {
-        format!("{}.dto", self.pom_xml.get_root_package())
+        [&self.pom_xml.get_root_package(), "dto"].join(".")
     }
 
     //adds an entity model and the respective service and repo
     pub fn add_entity(mut self, jclass: JavaClass) -> Self {
-        let model_import = Import::new(self.models_package(), jclass.clone().class_name);
+        let model_import = Import::new(self.models_package(), jclass.class_name.clone());
         let crud_build = CrudBuilder::new(jclass);
         let entity = crud_build.spring_boot_entity();
         let jpa_repo = crud_build.jpa_repository_of(model_import.clone());
@@ -529,7 +259,7 @@ impl MavenCodebase {
             jpa_repo.name.clone(),
         ));
 
-        let dto = crud_build.dto_from_class(model_import.clone());
+        let dto = crud_build.dto_from_class(model_import);
         let controller = crud_build.controller_from_class(
             Import::new(self.services_package(), service.class_name.clone()),
             Import::new(self.dto_package(), dto.class_name.clone()),
@@ -610,39 +340,30 @@ impl MavenCodebase {
         self.put_classes_in_packages();
         println!("Generating code");
 
-        //theses calls could be completely written in the OutputDirs class
-        self.generate_classes_in(&self.entities, self.out_dirs.models_folder());
+        self.out_dirs.generate_classes_in(
+            &self.entities,
+            self.out_dirs.models_folder().to_str().unwrap(),
+        );
 
-        self.generate_interfaces_in(&self.jpa_repos, self.out_dirs.repos_folder());
+        self.out_dirs.generate_interfaces_in(
+            &self.jpa_repos,
+            self.out_dirs.repos_folder().to_str().unwrap(),
+        );
 
-        self.generate_classes_in(&self.services, self.out_dirs.services_folder());
+        self.out_dirs.generate_classes_in(
+            &self.services,
+            self.out_dirs.services_folder().to_str().unwrap(),
+        );
 
-        self.generate_classes_in(&self.controller_classes, self.out_dirs.controllers_folder());
+        self.out_dirs.generate_classes_in(
+            &self.controller_classes,
+            self.out_dirs.controllers_folder().to_str().unwrap(),
+        );
 
-        self.generate_classes_in(&self.dto_classes, self.out_dirs.dtos_folder());
-    }
-    fn generate_classes_in(&self, classes: &[JavaClass], folder: PathBuf) {
-        classes.iter().for_each(|cls| {
-            let mut path = folder.clone();
-            path.push(&cls.class_name);
-            path.set_extension("java");
-
-            match fs::write(path, cls.generate_code()) {
-                Ok(r) => println!("Entities were successfully generated"),
-                Err(e) => println!("An error occurred when generating entities {}", e),
-            }
-        });
-    }
-    fn generate_interfaces_in(&self, interfaces: &[Interface], folder: PathBuf) {
-        interfaces.into_iter().for_each(|cls| {
-            let mut path = folder.clone();
-            path.push(&cls.name);
-            path.set_extension("java");
-            match fs::write(path, cls.generate_code()) {
-                Ok(r) => println!("Entities were successfully generated"),
-                Err(e) => println!("An error occurred when generating entities {}", e),
-            }
-        });
+        self.out_dirs.generate_classes_in(
+            &self.dto_classes,
+            self.out_dirs.dtos_folder().to_str().unwrap(),
+        );
     }
 
     pub fn extract_to_zip(&self) -> PathBuf {

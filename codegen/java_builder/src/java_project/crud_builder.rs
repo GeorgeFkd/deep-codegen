@@ -34,6 +34,7 @@ impl CrudBuilder {
     pub fn jpa_repository_of(&self, cls_import: Import) -> Interface {
         let jclass = self.for_class.to_owned();
         let mut repo = Interface::new("".to_string(), jclass.class_name.clone() + "Repository");
+        //theses calls could be completely written in the OutputDirs class
         let find_by_id_method = Method::new(
             TypeName::new_with_generics(
                 "Optional".into(),
@@ -260,7 +261,6 @@ impl CrudBuilder {
         controller
     }
 }
-//TODO CrudOptions {controller:bool,service:bool,entity:bool,repository:bool,dto:bool}
 fn id_field_for_entity() -> Field {
     let id_annotation = Annotation::new("Id".into());
     let id_annotation_strategy = Annotation::new("GeneratedValue".into())

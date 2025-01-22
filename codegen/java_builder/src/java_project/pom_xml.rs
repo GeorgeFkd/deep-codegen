@@ -202,7 +202,7 @@ impl Generate for PomXml {
 
         result += &self.dependencies.generate();
         result += r#"</project>"#;
-        println!("Xml result {}", result);
+        //println!("Xml result {}", result);
         result
     }
 }

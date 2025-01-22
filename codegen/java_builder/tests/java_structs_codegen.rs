@@ -37,8 +37,8 @@ pub mod java_structs_tests {
     fn panics_when_modifiers_protected_and_public() {
         let modifiers: Vec<AccessModifiers> =
             vec![AccessModifiers::Protected, AccessModifiers::Public];
-        let result = modifiers.generate_code();
-        println!("Result: {}", result);
+        let _result = modifiers.generate_code();
+        //println!("Result: {}", result);
     }
 
     //testing could be per element to decrease the surface
@@ -148,13 +148,13 @@ pub mod java_structs_tests {
 
         assert!(result.len() > 0, "Codegen gave empty output");
         assert_program_is_syntactically_correct(&result);
-        println!("{}", result);
+        //println!("{}", result);
         assert!(
             result.contains(package_name),
             "The package name was not properly included"
         );
 
-        println!("Result is: \n{result}");
+        //println!("Result is: \n{result}");
         assert!(
             result.contains(class_name),
             "The classname was not properly included"
@@ -256,7 +256,6 @@ pub mod java_structs_tests {
         ];
         let enum_modifiers = vec![AccessModifiers::Public];
         let mut builder = JavaEnum::new(enum_name.clone(), package_name.clone());
-        // builder = builder.
         builder = builder.types(enum_types.clone());
         builder = builder.modifiers(enum_modifiers.clone());
         let imports = vec![
@@ -287,7 +286,7 @@ pub mod java_structs_tests {
         let modifiers: Vec<AccessModifiers> =
             vec![AccessModifiers::Private, AccessModifiers::Public];
         let result = modifiers.generate_code();
-        println!("Result: {}", result);
+        //println!("Result: {}", result);
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, rc::Rc};
 
 use super::{
     annotations::Annotation,
@@ -68,7 +68,7 @@ impl Codegen for JavaClass {
             result.push_str(&method.generate_code());
         }
         result.push_str("\n}\n");
-        println!("Result is: {}", result);
+        //println!("Result is: {}", result);
         result
     }
 }

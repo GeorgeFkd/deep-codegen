@@ -53,7 +53,7 @@ mod integration_tests {
             if file.is_file() {
                 //extra asserts here
             }
-            println!("Filename: {}", file.name());
+            //println!("Filename: {}", file.name());
             std::io::copy(&mut file, &mut std::io::stdout()).unwrap();
         }
     }
